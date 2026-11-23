@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.image }} / ${{ matrix.config.name }}
+    runs-on: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [windows-2022, windows-latest]
+        config:
+          - name: Debug
+            slug: debug
+          - name: Release
+            slug: release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The presets exist for both Visual Studio generations. The image decides
+      # which one is available; picking by the installed version keeps the same
+      # workflow green on a VS 2022 runner and on a VS 2026 runner, and means the
+      # VS 2022 toolset is exercised on every push even though local development
+      # happens on VS 2026.
+      - name: Select MSVC preset family
+        id: family
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path "${env:ProgramFiles(x86)}" 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw 'vswhere.exe not found; no Visual Studio on this image' }
+          $version = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+          Write-Host "Visual Studio version: $version"
+          $family = if ($version -match '^18\.') { 'vs2026' } else { 'vs2022' }
+          Write-Host "Preset family: $family"
+          "family=$family" >> $env:GITHUB_OUTPUT
+
+      - name: Configure
+        run: cmake --preset ${{ steps.family.outputs.family }}
+
+      - name: Build (${{ matrix.config.name }})
+        run: cmake --build --preset ${{ steps.family.outputs.family }}-${{ matrix.config.slug }} --parallel
+
+      - name: Test (${{ matrix.config.name }})
+        run: ctest --preset ${{ steps.family.outputs.family }}-${{ matrix.config.slug }}
+
+  static-analysis:
+    name: clang-tidy (informational)
+    runs-on: windows-latest
+    # Static analysis reports findings but must not turn CI red; the checks are
+    # tuned in .clang-tidy and findings are triaged by hand.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate clang-tidy and select preset family
+        id: setup
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path "${env:ProgramFiles(x86)}" 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $version = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+          $family = if ($version -match '^18\.') { 'vs2026' } else { 'vs2022' }
+          "family=$family" >> $env:GITHUB_OUTPUT
+
+          $tidy = & $vswhere -latest -find 'VC\Tools\Llvm\x64\bin\clang-tidy.exe' | Select-Object -First 1
+          if (-not $tidy) { throw 'clang-tidy.exe not found in the Visual Studio installation' }
+          Split-Path $tidy | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "clang-tidy: $tidy"
+
+      - name: Configure with clang-tidy
+        run: cmake --preset ${{ steps.setup.outputs.family }}-tidy
+
+      - name: Build with clang-tidy
+        run: cmake --build --preset ${{ steps.setup.outputs.family }}-tidy-debug --parallel
