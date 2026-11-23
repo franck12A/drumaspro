@@ -1,0 +1,10 @@
+# First-party sources are stored and checked out with LF (see .editorconfig).
+* text=auto eol=lf
+
+# Vendored sources are kept byte-identical to their upstream release so that the
+# recorded hashes in third_party/README.md stay meaningful.
+third_party/** -text
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

@@ -1,0 +1,51 @@
+# Build trees (CMake presets write under build/)
+build/
+out/
+install/
+
+# CMake
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+_deps/
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.VC.db
+*.VC.opendb
+*.aps
+*.log
+
+# Binaries and objects
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.so
+*.a
+*.o
+
+# Test and trace output
+Testing/
+*.trace
+*.etl
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Local scratch
+.tmp-ref/

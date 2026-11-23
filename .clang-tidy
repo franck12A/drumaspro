@@ -1,0 +1,79 @@
+---
+# Static analysis for first-party code only.
+#
+# Enabled with -DDRUMAS_ENABLE_CLANG_TIDY=ON (presets "vs2026-tidy" and
+# "vs2022-tidy"). Never part of the default build, and findings do not fail the
+# build unless DRUMAS_CLANG_TIDY_WARNINGS_AS_ERRORS is switched on.
+#
+# Deliberate exclusions (see docs/style.md):
+#   modernize-use-trailing-return-type  -- the project uses ordinary return types
+#   modernize/cppcoreguidelines-avoid-c-arrays -- fixed buffers in DSP code
+#   cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers
+#   cppcoreguidelines-pro-bounds-*      -- pointer arithmetic is inherent to DSP
+#   cppcoreguidelines-pro-type-reinterpret-cast -- needed for the miniaudio bridge
+#   cppcoreguidelines-owning-memory     -- no gsl::owner in this codebase
+#   cppcoreguidelines-non-private-member-variables-in-classes -- test probes
+#   cppcoreguidelines-avoid-non-const-global-variables -- the allocation counter
+#   readability-identifier-length, -function-cognitive-complexity
+#   performance-enum-size               -- enums are small and explicit on purpose
+Checks: '-*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  readability-braces-around-statements,
+  readability-const-return-type,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-misleading-indentation,
+  readability-non-const-parameter,
+  readability-redundant-smartptr-get,
+  readability-static-accessed-through-instance,
+  readability-uniqueptr-delete-release,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -readability-magic-numbers,
+  -performance-enum-size'
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(src|tests)/.*\.(h|hpp|cpp)$'
+ExcludeHeaderFilterRegex: '^third_party/'
+FormatStyle: file
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.MemberCase
+    value: camelBack_suffix_underscore
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack_suffix_underscore
+  - key: readability-identifier-naming.ConstantCase
+    value: kCamelCase
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+...
