@@ -1,0 +1,211 @@
+// DSPark -- Professional Audio DSP Framework
+// Copyright (c) 2026 Cristian Moresi -- MIT License
+
+#pragma once
+
+/**
+ * @file ProcessorChain.h
+ * @brief Compile-time processor chain for composing DSP effects.
+ *
+ * Chains multiple processors together so they are prepared, processed,
+ * and reset as a single unit. Uses `std::tuple` internally -- all dispatch
+ * is resolved at compile time with zero runtime overhead.
+ *
+ * Each processor in the chain must satisfy the framework's AudioProcessor concept.
+ *
+ * Dependencies: ProcessorTraits.h, AudioSpec.h, AudioBuffer.h.
+ */
+
+#include "ProcessorTraits.h"
+#include "AudioSpec.h"
+#include "AudioBuffer.h"
+
+#include <cstddef>
+#include <concepts>
+#include <tuple>
+#include <utility>
+#include <array>
+#include <atomic>
+
+namespace dspark {
+
+/**
+ * @class ProcessorChain
+ * @brief Compile-time chain of audio processors.
+ *
+ * Processors are stored in a `std::tuple` and invoked in order.
+ * Access individual processors via `get<Index>()` to configure parameters.
+ *
+ * Threading (SPSC model, see docs/threading.md): prepare()/reset() are
+ * setup-time (never concurrent with processing); processBlock() belongs to
+ * the audio thread; setBypassed<I>() belongs to the control thread (one
+ * independent relaxed atomic word per slot, adopted at the next
+ * processBlock()); isBypassed<I>() and getLatency() are lock-free readouts
+ * callable from any thread (each slot's getLatency() must itself be a
+ * lock-free readout, as the framework processors' are). get<I>() returns a
+ * reference whose thread contract is the slot processor's own.
+ *
+ * @tparam T          Sample type (float or double).
+ * @tparam Processors Processor types. Must be greater than 0.
+ */
+template <typename T, typename... Processors>
+class ProcessorChain
+{
+    static_assert(sizeof...(Processors) > 0, "ProcessorChain requires at least one processor.");
+    static_assert((AudioProcessor<Processors, T> && ...),
+        "Every ProcessorChain slot must satisfy the dspark::AudioProcessor concept "
+        "(prepare(AudioSpec), processBlock(AudioBufferView<T>) noexcept, reset() noexcept).");
+
+public:
+    /**
+     * @brief Prepares all processors in order.
+     * @param spec Audio specification.
+     */
+    void prepare(const AudioSpec& spec)
+    {
+        std::apply([&spec](auto&... procs) {
+            (procs.prepare(spec), ...);
+        }, processors_);
+    }
+
+    /**
+     * @brief Processes a buffer through all non-bypassed processors in order.
+     * @param buffer Audio buffer (modified in-place by each processor).
+     */
+    void processBlock(AudioBufferView<T> buffer) noexcept
+    {
+        processBlockImpl(buffer, std::index_sequence_for<Processors...>{});
+    }
+
+    /**
+     * @brief Resets the internal state of all processors (e.g., clearing delay lines).
+     */
+    void reset() noexcept
+    {
+        std::apply([](auto&... procs) {
+            (procs.reset(), ...);
+        }, processors_);
+    }
+
+    /**
+     * @brief Accesses the processor at the given index.
+     *
+     * @tparam Index Zero-based index into the chain.
+     * @return Reference to the processor.
+     */
+    template <std::size_t Index>
+    [[nodiscard]] auto& get() noexcept
+    {
+        static_assert(Index < sizeof...(Processors), "Processor index out of bounds.");
+        return std::get<Index>(processors_);
+    }
+
+    /**
+     * @brief Const access to the processor at the given index.
+     *
+     * @tparam Index Zero-based index into the chain.
+     * @return Const reference to the processor.
+     */
+    template <std::size_t Index>
+    [[nodiscard]] const auto& get() const noexcept
+    {
+        static_assert(Index < sizeof...(Processors), "Processor index out of bounds.");
+        return std::get<Index>(processors_);
+    }
+
+    /**
+     * @brief Returns the number of processors in the chain.
+     */
+    [[nodiscard]] static constexpr std::size_t size() noexcept
+    {
+        return sizeof...(Processors);
+    }
+
+    /**
+     * @brief Returns the total latency in samples across all processors.
+     *
+     * Reporters are detected at compile time via requires expressions and
+     * summed at runtime. Only processors providing a const `getLatency()`
+     * convertible to int contribute; a non-const `getLatency()` is a
+     * compile error rather than a silent zero.
+     *
+     * @note Latency is summed over ALL slots regardless of per-slot bypass, so
+     *       the reported value stays constant when toggling bypass at runtime.
+     *       This is deliberate: a fluctuating latency would force the host to
+     *       re-issue plugin delay compensation on every bypass change.
+     */
+    [[nodiscard]] int getLatency() const noexcept
+    {
+        return getLatencyImpl(std::index_sequence_for<Processors...>{});
+    }
+
+    // -- Bypass control ------------------------------------------------------
+
+    /**
+     * @brief Toggles bypass for a processor (control thread; the relaxed
+     *        atomic word is adopted by the next processBlock()).
+     *
+     * @warning This is a hard bypass. Toggling this during live playback will cause
+     * audio clicks/pops and phase discontinuities if the processor introduces latency.
+     * For real-time clickless bypass, prefer using dry/wet controls within the 
+     * specific processor itself.
+     *
+     * @tparam Index Zero-based index into the chain.
+     * @param bypassed True to bypass, false to enable.
+     */
+    template <std::size_t Index>
+    void setBypassed(bool bypassed) noexcept
+    {
+        static_assert(Index < sizeof...(Processors), "Index out of range");
+        bypassed_[Index].store(bypassed, std::memory_order_relaxed);
+    }
+
+    /**
+     * @brief Reads the bypass state (lock-free readout, any thread).
+     */
+    template <std::size_t Index>
+    [[nodiscard]] bool isBypassed() const noexcept
+    {
+        static_assert(Index < sizeof...(Processors), "Index out of range");
+        return bypassed_[Index].load(std::memory_order_relaxed);
+    }
+
+private:
+    template <std::size_t... Is>
+    [[nodiscard]] int getLatencyImpl(std::index_sequence<Is...>) const noexcept
+    {
+        return (getProcessorLatency<Is>() + ...);
+    }
+
+    template <std::size_t I>
+    [[nodiscard]] int getProcessorLatency() const noexcept
+    {
+        using P = std::tuple_element_t<I, std::tuple<Processors...>>;
+        if constexpr (requires(const P& p) { { p.getLatency() } -> std::convertible_to<int>; })
+        {
+            return static_cast<int>(std::get<I>(processors_).getLatency());
+        }
+        else
+        {
+            // A latency reporter that is not callable on a const processor
+            // (or does not return an int-convertible value) would otherwise
+            // be skipped silently, desynchronising host delay compensation.
+            static_assert(!requires(P& p) { p.getLatency(); },
+                "Processor getLatency() must be const and return a value convertible to int "
+                "to be summed by ProcessorChain::getLatency().");
+            return 0;
+        }
+    }
+
+    template <std::size_t... Is>
+    void processBlockImpl(AudioBufferView<T> buffer, std::index_sequence<Is...>) noexcept
+    {
+        // Uses memory_order_relaxed as we only care about the state, no memory synchronization needed
+        ((!bypassed_[Is].load(std::memory_order_relaxed) ? std::get<Is>(processors_).processBlock(buffer) : (void)0), ...);
+    }
+
+    std::tuple<Processors...> processors_;
+    std::array<std::atomic<bool>, sizeof...(Processors)> bypassed_ {};
+};
+
+} // namespace dspark
