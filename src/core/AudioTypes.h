@@ -7,6 +7,9 @@
 
 #include <cmath>
 #include <cstdint>
+#include <type_traits>
+
+#include "core/ParameterRegistry.h"
 
 namespace drumas::core {
 
@@ -40,40 +43,33 @@ enum class CommandType : std::uint8_t {
     AllNotesOff,
 };
 
-/// Parameter ids understood by the synth. Effects will add their own ranges in
-/// later stages; an id is just a tag carried in a Command.
-enum class ParamId : std::uint8_t {
-    None = 0,
-    MasterGain,  // linear gain, 0..1
-    AttackMs,
-    DecayMs,
-    Sustain,  // 0..1
-    ReleaseMs,
-};
-
 /// One event, small enough to travel through a lock-free queue by value.
-/// Trivially copyable is a hard requirement of core::SpscQueue.
+/// Trivially copyable is a hard requirement of core::SpscQueue. `param` is a
+/// stable 32-bit id from core::ParameterRegistry; 0 means "no parameter".
 struct Command {
     CommandType type = CommandType::None;
-    ParamId param = ParamId::None;
+    ParameterId param = kInvalidParameterId;
     std::uint8_t note = 0;
     float value = 0.0F;
 };
 
+static_assert(std::is_trivially_copyable_v<Command>,
+              "Command must stay trivially copyable: it crosses a lock-free queue");
+
 [[nodiscard]] constexpr Command noteOn(std::uint8_t note, float velocity = 1.0F) noexcept {
-    return Command{CommandType::NoteOn, ParamId::None, note, velocity};
+    return Command{CommandType::NoteOn, kInvalidParameterId, note, velocity};
 }
 
 [[nodiscard]] constexpr Command noteOff(std::uint8_t note) noexcept {
-    return Command{CommandType::NoteOff, ParamId::None, note, 0.0F};
+    return Command{CommandType::NoteOff, kInvalidParameterId, note, 0.0F};
 }
 
-[[nodiscard]] constexpr Command setParam(ParamId id, float value) noexcept {
+[[nodiscard]] constexpr Command setParam(ParameterId id, float value) noexcept {
     return Command{CommandType::SetParam, id, 0, value};
 }
 
 [[nodiscard]] constexpr Command allNotesOff() noexcept {
-    return Command{CommandType::AllNotesOff, ParamId::None, 0, 0.0F};
+    return Command{CommandType::AllNotesOff, kInvalidParameterId, 0, 0.0F};
 }
 
 /// Equal-tempered conversion from MIDI note number to frequency in Hz.

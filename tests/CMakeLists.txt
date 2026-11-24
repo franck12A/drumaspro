@@ -21,6 +21,7 @@ add_executable(
     support/AllocationCounter.cpp
     core/test_spsc_queue.cpp
     core/test_smoothed_value.cpp
+    core/test_parameter_registry.cpp
     synth/test_sine_oscillator.cpp
     synth/test_adsr.cpp
     synth/test_voice_pool.cpp

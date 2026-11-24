@@ -14,6 +14,7 @@
 #include "core/AudioTypes.h"
 #include "core/IAudioProcessor.h"
 #include "core/SmoothedValue.h"
+#include "synth/ParameterIds.h"
 #include "synth/VoicePool.h"
 
 namespace drumas::synth {
@@ -125,28 +126,31 @@ public:
     [[nodiscard]] float masterGainTarget() const noexcept { return masterGain_.target(); }
 
 private:
-    void applyParameter(core::ParamId param, float value) noexcept {
+    void applyParameter(core::ParameterId param, float value) noexcept {
         switch (param) {
-            case core::ParamId::MasterGain:
+            case kMasterGain:
                 masterGain_.setTargetValue(std::clamp(value, 0.0F, 1.0F));
                 break;
-            case core::ParamId::AttackMs:
+            case kAmpAttackMs:
                 parameters_.attackMs = std::max(value, 0.01F);
                 parametersDirty_ = true;
                 break;
-            case core::ParamId::DecayMs:
+            case kAmpDecayMs:
                 parameters_.decayMs = std::max(value, 0.01F);
                 parametersDirty_ = true;
                 break;
-            case core::ParamId::Sustain:
+            case kAmpSustain:
                 parameters_.sustain = std::clamp(value, 0.0F, 1.0F);
                 parametersDirty_ = true;
                 break;
-            case core::ParamId::ReleaseMs:
+            case kAmpReleaseMs:
                 parameters_.releaseMs = std::max(value, 0.01F);
                 parametersDirty_ = true;
                 break;
-            case core::ParamId::None:
+            default:
+                // Not a synth parameter (yet): ignore, the command still counts
+                // as applied. Unknown ids are also rejected by the registry on
+                // the control side.
                 break;
         }
         if (parametersDirty_) {

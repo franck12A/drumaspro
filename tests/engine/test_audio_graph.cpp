@@ -56,7 +56,7 @@ TEST_CASE("audio graph drains commands at the start of the block", "[engine][gra
     graph.setProcessor(&processor);
 
     REQUIRE(graph.pushCommand(drumas::core::noteOn(69, 1.0F)));
-    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::core::ParamId::MasterGain, 0.5F)));
+    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::synth::kMasterGain, 0.5F)));
 
     std::vector<float> interleaved(2 * 256, 0.0F);
     graph.render(interleaved.data(), 2, 256);
@@ -193,7 +193,7 @@ TEST_CASE("rendering a block on the audio path does not allocate", "[engine][gra
     std::vector<float> interleaved(2 * 512, 0.0F);
 
     REQUIRE(graph.pushCommand(drumas::core::noteOn(69, 1.0F)));
-    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::core::ParamId::AttackMs, 30.0F)));
+    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::synth::kAmpAttackMs, 30.0F)));
 
     // Warm up once so first-call effects (lazy statics, OS page faults) are not
     // attributed to the measured blocks.
