@@ -10,6 +10,8 @@
 #include "core/AudioTypes.h"
 #include "core/IAudioProcessor.h"
 #include "engine/AudioGraph.h"
+#include "fx/EffectFactory.h"
+#include "fx/EffectTypes.h"
 #include "support/AllocationCounter.h"
 #include "synth/SynthProcessor.h"
 
@@ -213,4 +215,71 @@ TEST_CASE("rendering a block on the audio path does not allocate", "[engine][gra
     REQUIRE(graph.stats().blocks == static_cast<std::uint64_t>(kBlocks + 1));
     REQUIRE(synth.activeVoices() ==
             static_cast<std::uint32_t>(drumas::synth::VoicePool::kMaxVoices));
+}
+
+TEST_CASE("six inserts and the look-ahead limiter run without allocating",
+          "[engine][graph][fx][realtime]") {
+    drumas::synth::SynthProcessor synth;
+    drumas::engine::AudioGraph graph;
+    const drumas::core::AudioSpec spec{48000.0, 512, 2};
+    synth.prepare(spec);
+    graph.prepare(spec);
+    graph.setProcessor(&synth);
+
+    REQUIRE(graph.pushCommand(drumas::core::selectPatch(0)));
+    for (std::size_t slot = 0; slot < drumas::fx::kEffectSlotCount; ++slot) {
+        REQUIRE(graph.pushCommand(drumas::core::setEffectBypass(
+            static_cast<std::uint8_t>(slot), false)));
+        REQUIRE(graph.pushCommand(drumas::core::setEffectMix(
+            static_cast<std::uint8_t>(slot), 0.5F)));
+    }
+    for (int note = 40; note < 40 + static_cast<int>(drumas::synth::VoicePool::kMaxVoices);
+         ++note) {
+        REQUIRE(graph.pushCommand(drumas::core::noteOn(static_cast<std::uint8_t>(note), 0.7F)));
+    }
+
+    std::vector<float> interleaved(2 * 512, 0.0F);
+    graph.render(interleaved.data(), 2, 512);
+    REQUIRE(synth.latencySamples() > 0);
+
+    drumas::test::resetAllocationCount();
+    for (int block = 0; block < 64; ++block) {
+        graph.render(interleaved.data(), 2, 512);
+    }
+    REQUIRE(drumas::test::allocationCount() == 0);
+
+    float peak = 0.0F;
+    for (const float sample : interleaved) {
+        REQUIRE(std::isfinite(sample));
+        peak = std::max(peak, std::fabs(sample));
+    }
+    // -1 dBFS ceiling; the safety clip is below it.
+    REQUIRE(peak <= 0.9F);
+    REQUIRE(peak > 0.0F);
+}
+
+TEST_CASE("a hot effect swap in the full graph does not allocate",
+          "[engine][graph][fx][realtime]") {
+    drumas::synth::SynthProcessor synth;
+    drumas::engine::AudioGraph graph;
+    const drumas::core::AudioSpec spec{48000.0, 256, 2};
+    synth.prepare(spec);
+    graph.prepare(spec);
+    graph.setProcessor(&synth);
+
+    auto replacement = drumas::fx::createPreparedEffect(drumas::fx::kFilterType, spec);
+    REQUIRE(replacement != nullptr);
+    synth.applyCommand(drumas::core::swapEffect(
+        0, reinterpret_cast<std::uintptr_t>(replacement.get())));
+    replacement.release();
+
+    std::vector<float> interleaved(2 * 256, 0.0F);
+    drumas::test::resetAllocationCount();
+    for (int block = 0; block < 32; ++block) {
+        graph.render(interleaved.data(), 2, 256);
+    }
+    REQUIRE(drumas::test::allocationCount() == 0);
+
+    drumas::fx::IEffect* retired = nullptr;
+    while (synth.takeRetiredEffect(retired)) delete retired;
 }

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "core/AudioTypes.h"
+#include "fx/EffectTypes.h"
 #include "synth/PatchBank.h"
 #include "synth/SynthProcessor.h"
 
@@ -32,6 +33,12 @@ TEST_CASE("callback cost with 32 voices and maximum unison is reported",
     synth.prepare(spec);
 
     synth.applyCommand(drumas::core::selectPatch(0));  // Pad, unison 4
+    // The default chain is bypassed so stage 4 remains the reference sound; the
+    // performance case enables all six slots and the master limiter.
+    for (std::size_t slot = 0; slot < drumas::fx::kEffectSlotCount; ++slot) {
+        synth.applyCommand(
+            drumas::core::setEffectBypass(static_cast<std::uint8_t>(slot), false));
+    }
     constexpr int kFirstNote = 36;
     for (int index = 0; index < static_cast<int>(drumas::synth::VoicePool::kMaxVoices); ++index) {
         synth.applyCommand(
@@ -62,10 +69,13 @@ TEST_CASE("callback cost with 32 voices and maximum unison is reported",
     const double percent = 100.0 * msPerBlock / budgetMs;
 
     std::printf(
-        "\n[performance] 32 voices, 2 osc x 4 unison + sub/filter/2 ADSR/LFO: "
-        "%.3f ms/block, %.1f%% of the %.3f ms budget (block %d, %.0f Hz)\n",
-        msPerBlock, percent, budgetMs, kBlockFrames, kSampleRate);
+        "\n[performance] 32 voices, 2 osc x 4 unison + sub/filter/2 ADSR/LFO + "
+        "6 inserts + limiter: %.3f ms/block, %.1f%% of the %.3f ms budget "
+        "(block %d, %.0f Hz, latency %d samples): %s\n",
+        msPerBlock, percent, budgetMs, kBlockFrames, kSampleRate,
+        synth.latencySamples(), percent < 60.0 ? "PASS" : "OVER 60%");
     std::fflush(stdout);
 
     REQUIRE(msPerBlock > 0.0);
+    REQUIRE(synth.latencySamples() > 0);
 }
