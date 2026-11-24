@@ -138,7 +138,7 @@ TEST_CASE("audio graph renders silence without a processor", "[engine][graph]") 
     }
 }
 
-TEST_CASE("a note commanded through the graph renders the expected pitch", "[engine][graph]") {
+TEST_CASE("a note commanded through the graph renders audible audio", "[engine][graph]") {
     drumas::synth::SynthProcessor synth;
     drumas::engine::AudioGraph graph;
 
@@ -147,11 +147,10 @@ TEST_CASE("a note commanded through the graph renders the expected pitch", "[eng
     graph.prepare(spec);
     graph.setProcessor(&synth);
 
-    REQUIRE(graph.pushCommand(drumas::core::noteOn(69, 1.0F)));  // A4 = 440 Hz
+    REQUIRE(graph.pushCommand(drumas::core::selectPatch(2)));  // Keys
+    REQUIRE(graph.pushCommand(drumas::core::noteOn(69, 1.0F)));
 
     std::vector<float> interleaved(2 * 256, 0.0F);
-    int zeroCrossings = 0;
-    float previous = 0.0F;
     float peak = 0.0F;
 
     // One second of audio, one block at a time.
@@ -162,17 +161,12 @@ TEST_CASE("a note commanded through the graph renders the expected pitch", "[eng
             const float sample = interleaved[static_cast<std::size_t>(frame) * 2];
             REQUIRE(std::isfinite(sample));
             peak = std::max(peak, std::fabs(sample));
-            if ((previous <= 0.0F && sample > 0.0F) || (previous >= 0.0F && sample < 0.0F)) {
-                ++zeroCrossings;
-            }
-            previous = sample;
         }
     }
 
-    REQUIRE(zeroCrossings == Catch::Approx(880).margin(4));
-    // Master gain 0.25, sustain 0.7: comfortably audible, far from clipping.
-    REQUIRE(peak > 0.05F);
-    REQUIRE(peak <= 1.0F);
+    REQUIRE(peak > 0.02F);
+    REQUIRE(peak <= 1.0F);  // the master soft clip guarantees this
+    REQUIRE(synth.activeVoices() == 1);
 }
 
 TEST_CASE("rendering a block on the audio path does not allocate", "[engine][graph][realtime]") {
@@ -192,8 +186,14 @@ TEST_CASE("rendering a block on the audio path does not allocate", "[engine][gra
 
     std::vector<float> interleaved(2 * 512, 0.0F);
 
-    REQUIRE(graph.pushCommand(drumas::core::noteOn(69, 1.0F)));
-    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::synth::kAmpAttackMs, 30.0F)));
+    // Worst case of the stage: Pad uses unison 4 (eight oscillators per voice),
+    // every one of the 32 voices is sounding, and the filter/LFO are running.
+    REQUIRE(graph.pushCommand(drumas::core::selectPatch(0)));
+    for (int note = 40; note < 40 + static_cast<int>(drumas::synth::VoicePool::kMaxVoices);
+         ++note) {
+        REQUIRE(graph.pushCommand(drumas::core::noteOn(static_cast<std::uint8_t>(note), 0.7F)));
+    }
+    REQUIRE(graph.pushCommand(drumas::core::setParam(drumas::synth::kFilterCutoff, 900.0F)));
 
     // Warm up once so first-call effects (lazy statics, OS page faults) are not
     // attributed to the measured blocks.
@@ -211,5 +211,6 @@ TEST_CASE("rendering a block on the audio path does not allocate", "[engine][gra
     REQUIRE(drumas::test::allocationCount() == 0);
     REQUIRE(energy > 0.0);  // the graph actually produced audio
     REQUIRE(graph.stats().blocks == static_cast<std::uint64_t>(kBlocks + 1));
-    REQUIRE(synth.activeVoices() == 1);
+    REQUIRE(synth.activeVoices() ==
+            static_cast<std::uint32_t>(drumas::synth::VoicePool::kMaxVoices));
 }

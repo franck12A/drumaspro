@@ -78,6 +78,19 @@ public:
         updateTriangleNormalization();
     }
 
+    /// Audio thread. Applies a pitch ratio on top of `hz` without recomputing
+    /// the triangle normalization: vibrato changes the increment every sample
+    /// and the cached normalization stays correct to within the tiny amplitude
+    /// error of a bend below a semitone. Used by the voice's LFO vibrato path.
+    void setFrequencyModulated(float hz, float ratio) noexcept {
+        if (!std::isfinite(hz) || !std::isfinite(ratio)) {
+            return;
+        }
+        const float scaled = hz * ratio;
+        const float clamped = std::clamp(scaled, 0.0F, static_cast<float>(sampleRate_) * 0.5F);
+        phaseIncrement_ = std::clamp(clamped / static_cast<float>(sampleRate_), 0.0F, 0.5F);
+    }
+
     void setWaveform(Waveform waveform) noexcept override { waveform_ = waveform; }
 
     void setPulseWidth(float width) noexcept override {

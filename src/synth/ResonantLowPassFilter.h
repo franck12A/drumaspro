@@ -33,6 +33,9 @@ public:
     static constexpr float kMaxCutoffHz = 20000.0F;
     /// Length of the glide applied to a large cutoff jump (5 ms at 48 kHz).
     static constexpr int kRampSamples = 240;
+    /// A setCutoff() call within this many processStereo() calls counts as
+    /// continuous modulation (the voice calls it every sample).
+    static constexpr int kModulationWindow = 32;
 
     /// Setup thread. Allocates nothing; the SVF is a fixed-size value type.
     void prepare(double sampleRate) noexcept {
@@ -53,6 +56,7 @@ public:
         impl_.reset();
         currentCutoffHz_ = targetCutoffHz_;
         rampRemaining_ = 0;
+        samplesSinceCutoff_ = kModulationWindow + 1;
         impl_.setCutoff(currentCutoffHz_);
     }
 
@@ -69,16 +73,30 @@ public:
             return;
         }
         targetCutoffHz_ = std::clamp(hz, kMinCutoffHz, maxCutoffHz());
-        const float threshold = std::max(5.0F, currentCutoffHz_ * 0.05F);
-        if (std::fabs(targetCutoffHz_ - currentCutoffHz_) > threshold) {
-            rampRemaining_ = kRampSamples;
-            rampIncrement_ =
-                (targetCutoffHz_ - currentCutoffHz_) / static_cast<float>(kRampSamples);
-        } else {
+
+        // A caller that updates the cutoff every sample (the voice's envelope
+        // and LFO) is modulation, not a jump: apply it immediately so the
+        // modulation keeps its shape. A caller that was silent for a while and
+        // then asks for a very different cutoff is recalling a parameter: glide
+        // it, because changing the coefficients in one sample would step the
+        // output.
+        if (samplesSinceCutoff_ <= kModulationWindow) {
             rampRemaining_ = 0;
             currentCutoffHz_ = targetCutoffHz_;
             impl_.setCutoff(currentCutoffHz_);
+        } else {
+            const float threshold = std::max(5.0F, currentCutoffHz_ * 0.05F);
+            if (std::fabs(targetCutoffHz_ - currentCutoffHz_) > threshold) {
+                rampRemaining_ = kRampSamples;
+                rampIncrement_ =
+                    (targetCutoffHz_ - currentCutoffHz_) / static_cast<float>(kRampSamples);
+            } else {
+                rampRemaining_ = 0;
+                currentCutoffHz_ = targetCutoffHz_;
+                impl_.setCutoff(currentCutoffHz_);
+            }
         }
+        samplesSinceCutoff_ = 0;
     }
 
     /// Audio thread. 0 = critically damped, 1 = Q of 50 (strong resonance).
@@ -93,6 +111,9 @@ public:
 
     /// Audio thread. One sample through both channels. RT-SAFE.
     void processStereo(float& left, float& right) noexcept {
+        if (samplesSinceCutoff_ <= kModulationWindow) {
+            ++samplesSinceCutoff_;
+        }
         if (rampRemaining_ > 0) {
             currentCutoffHz_ += rampIncrement_;
             if (--rampRemaining_ == 0) {
@@ -119,6 +140,7 @@ private:
     float currentCutoffHz_ = 1000.0F;
     float rampIncrement_ = 0.0F;
     int rampRemaining_ = 0;
+    int samplesSinceCutoff_ = kModulationWindow + 1;
     float resonance_ = 0.0F;
 };
 

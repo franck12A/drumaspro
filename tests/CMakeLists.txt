@@ -22,12 +22,14 @@ add_executable(
     core/test_spsc_queue.cpp
     core/test_smoothed_value.cpp
     core/test_parameter_registry.cpp
-    synth/test_sine_oscillator.cpp
     synth/test_oscillator.cpp
     synth/test_master_limiter.cpp
     synth/test_filter.cpp
     synth/test_adsr.cpp
     synth/test_voice_pool.cpp
+    synth/test_patches.cpp
+    synth/test_patch_switching.cpp
+    synth/test_performance.cpp
     engine/test_audio_graph.cpp)
 
 target_include_directories(drumas_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -119,6 +119,10 @@ public:
     [[nodiscard]] std::size_t size() const noexcept { return count_; }
     [[nodiscard]] bool empty() const noexcept { return count_ == 0; }
 
+    /// Control thread. Empties the registry so it can be rebuilt (prepare() may
+    /// run more than once in tests and on device changes).
+    void clear() noexcept { count_ = 0; }
+
     /// Control thread, or any thread once the registry is no longer modified.
     /// `index` must be below size().
     [[nodiscard]] const ParameterDescriptor& at(std::size_t index) const noexcept {

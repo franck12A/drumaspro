@@ -1,22 +1,51 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
-#include <vector>
+#include <cstdint>
 
+#include "synth/PatchBank.h"
 #include "synth/VoicePool.h"
 
 namespace {
 
 constexpr double kSampleRate = 48000.0;
+constexpr int kBlockFrames = 256;
 
-drumas::synth::AdsrParameters fastEnvelope() {
-    drumas::synth::AdsrParameters parameters;
-    parameters.attackMs = 1.0F;
-    parameters.decayMs = 10.0F;
-    parameters.sustain = 0.8F;
-    parameters.releaseMs = 10.0F;
-    return parameters;
+drumas::synth::Patch testPatch(int unisonVoices = 1) {
+    drumas::synth::Patch patch;
+    patch.name = "Test";
+    patch.osc1Waveform = drumas::synth::Waveform::Saw;
+    patch.osc1Level = 0.5F;
+    patch.osc2Waveform = drumas::synth::Waveform::Square;
+    patch.osc2Level = 0.3F;
+    patch.unisonVoices = unisonVoices;
+    patch.unisonDetuneCents = 6.0F;
+    patch.unisonStereo = 0.5F;
+    patch.cutoffHz = 4000.0F;
+    patch.resonance = 0.1F;
+    patch.filterEnvOctaves = 0.0F;
+    patch.ampEnvelope = drumas::synth::AdsrParameters{1.0F, 10.0F, 0.8F, 10.0F};
+    patch.filterEnvelope = drumas::synth::AdsrParameters{1.0F, 10.0F, 0.8F, 10.0F};
+    patch.velocityVolume = 0.0F;
+    patch.velocityBrightness = 0.0F;
+    patch.lfoPitchDepthCents = 0.0F;
+    patch.lfoCutoffDepth = 0.0F;
+    return patch;
+}
+
+struct StereoBlock {
+    std::array<float, kBlockFrames> left{};
+    std::array<float, kBlockFrames> right{};
+    std::array<float, kBlockFrames> lfo{};
+};
+
+void renderBlock(drumas::synth::VoicePool& pool, StereoBlock& block) {
+    block.left.fill(0.0F);
+    block.right.fill(0.0F);
+    block.lfo.fill(0.0F);
+    pool.renderAdd(block.left.data(), block.right.data(), kBlockFrames, block.lfo.data());
 }
 
 }  // namespace
@@ -24,7 +53,6 @@ drumas::synth::AdsrParameters fastEnvelope() {
 TEST_CASE("voice pool starts silent", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);
-    pool.setEnvelopeParameters(fastEnvelope());
 
     REQUIRE(pool.activeVoiceCount() == 0);
     REQUIRE(pool.stealCount() == 0);
@@ -33,19 +61,20 @@ TEST_CASE("voice pool starts silent", "[synth][voices]") {
 TEST_CASE("voice pool allocates a voice per note", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);
-    pool.setEnvelopeParameters(fastEnvelope());
+    const drumas::synth::Patch patch = testPatch();
+    const drumas::synth::LiveParameters live = drumas::synth::liveParametersFrom(patch);
 
-    pool.noteOn(60, 1.0F);
+    pool.noteOn(60, 1.0F, patch, live);
     REQUIRE(pool.activeVoiceCount() == 1);
     REQUIRE(pool.voice(0).note() == 60);
     REQUIRE(pool.voice(0).isHeld());
     REQUIRE(pool.stealCount() == 0);
 
-    pool.noteOn(64, 0.5F);
+    pool.noteOn(64, 0.5F, patch, live);
     REQUIRE(pool.activeVoiceCount() == 2);
 
-    // Same note again retriggers the existing voice instead of stealing.
-    pool.noteOn(60, 0.25F);
+    // Same note again retriggers the existing voice instead of taking another.
+    pool.noteOn(60, 0.25F, patch, live);
     REQUIRE(pool.activeVoiceCount() == 2);
     REQUIRE(pool.stealCount() == 0);
 }
@@ -53,58 +82,75 @@ TEST_CASE("voice pool allocates a voice per note", "[synth][voices]") {
 TEST_CASE("voice pool steals when it runs out of voices", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);
-    pool.setEnvelopeParameters(fastEnvelope());
+    const drumas::synth::Patch patch = testPatch();
+    const drumas::synth::LiveParameters live = drumas::synth::liveParametersFrom(patch);
 
-    for (std::size_t i = 0; i < drumas::synth::VoicePool::kMaxVoices; ++i) {
-        pool.noteOn(static_cast<std::uint8_t>(60 + i), 1.0F);
+    for (std::size_t index = 0; index < drumas::synth::VoicePool::kMaxVoices; ++index) {
+        pool.noteOn(static_cast<std::uint8_t>(30 + index), 1.0F, patch, live);
     }
     REQUIRE(pool.activeVoiceCount() == drumas::synth::VoicePool::kMaxVoices);
     REQUIRE(pool.stealCount() == 0);
 
-    pool.noteOn(90, 1.0F);
+    pool.noteOn(90, 1.0F, patch, live);
     REQUIRE(pool.activeVoiceCount() == drumas::synth::VoicePool::kMaxVoices);
     REQUIRE(pool.stealCount() == 1);
+}
+
+TEST_CASE("each voice captures the patch it started with", "[synth][voices][patches]") {
+    drumas::synth::VoicePool pool;
+    pool.prepare(kSampleRate);
+
+    const drumas::synth::Patch& pad = drumas::synth::kFactoryPatches[0];
+    const drumas::synth::Patch& pluck = drumas::synth::kFactoryPatches[1];
+    pool.noteOn(60, 1.0F, pad, drumas::synth::liveParametersFrom(pad));
+    pool.noteOn(64, 1.0F, pluck, drumas::synth::liveParametersFrom(pluck));
+
+    REQUIRE(pool.voice(0).patch().name == std::string_view("Pad"));
+    REQUIRE(pool.voice(1).patch().name == std::string_view("Pluck"));
 }
 
 TEST_CASE("note off releases the voices playing that note", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);
-    pool.setEnvelopeParameters(fastEnvelope());
+    const drumas::synth::Patch patch = testPatch();
+    const drumas::synth::LiveParameters live = drumas::synth::liveParametersFrom(patch);
 
-    pool.noteOn(60, 1.0F);
-    pool.noteOn(64, 1.0F);
+    pool.noteOn(60, 1.0F, patch, live);
+    pool.noteOn(64, 1.0F, patch, live);
 
     pool.noteOff(60);
     REQUIRE_FALSE(pool.voice(0).isHeld());
     REQUIRE(pool.voice(1).isHeld());
 
     // The released voice keeps its tail until the envelope reaches idle.
-    std::vector<float> mix(256, 0.0F);
-    for (int block = 0; block < 40; ++block) {
-        std::fill(mix.begin(), mix.end(), 0.0F);
-        pool.renderAdd(mix.data(), static_cast<int>(mix.size()));
+    StereoBlock block;
+    for (int iteration = 0; iteration < 40; ++iteration) {
+        renderBlock(pool, block);
     }
     REQUIRE(pool.voice(0).isFree());
     REQUIRE(pool.activeVoiceCount() == 1);
 }
 
-TEST_CASE("rendering voices produces finite, bounded audio", "[synth][voices]") {
+TEST_CASE("rendering voices produces finite, bounded stereo audio", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);
-    pool.setEnvelopeParameters(fastEnvelope());
+    const drumas::synth::Patch patch = testPatch(4);
+    const drumas::synth::LiveParameters live = drumas::synth::liveParametersFrom(patch);
 
-    pool.noteOn(57, 1.0F);
-    pool.noteOn(60, 0.8F);
-    pool.noteOn(64, 0.6F);
+    pool.noteOn(57, 1.0F, patch, live);
+    pool.noteOn(60, 0.8F, patch, live);
+    pool.noteOn(64, 0.6F, patch, live);
 
-    std::vector<float> mix(512, 0.0F);
-    for (int block = 0; block < 200; ++block) {
-        std::fill(mix.begin(), mix.end(), 0.0F);
-        pool.renderAdd(mix.data(), static_cast<int>(mix.size()));
-
-        for (const float sample : mix) {
-            REQUIRE(std::isfinite(sample));
-            REQUIRE(std::fabs(sample) <= 3.0F);  // three voices, before master gain
+    StereoBlock block;
+    for (int iteration = 0; iteration < 200; ++iteration) {
+        renderBlock(pool, block);
+        for (int frame = 0; frame < kBlockFrames; ++frame) {
+            REQUIRE(std::isfinite(block.left[static_cast<std::size_t>(frame)]));
+            REQUIRE(std::isfinite(block.right[static_cast<std::size_t>(frame)]));
+            // Three full voices before master gain: a generous bound that still
+            // catches runaway resonance or unison summing.
+            REQUIRE(std::fabs(block.left[static_cast<std::size_t>(frame)]) <= 3.0F);
+            REQUIRE(std::fabs(block.right[static_cast<std::size_t>(frame)]) <= 3.0F);
         }
     }
 }

@@ -40,6 +40,7 @@ enum class CommandType : std::uint8_t {
     NoteOn,
     NoteOff,
     SetParam,
+    SelectPatch,
     AllNotesOff,
 };
 
@@ -50,6 +51,7 @@ struct Command {
     CommandType type = CommandType::None;
     ParameterId param = kInvalidParameterId;
     std::uint8_t note = 0;
+    std::uint8_t patch = 0;
     float value = 0.0F;
 };
 
@@ -57,19 +59,25 @@ static_assert(std::is_trivially_copyable_v<Command>,
               "Command must stay trivially copyable: it crosses a lock-free queue");
 
 [[nodiscard]] constexpr Command noteOn(std::uint8_t note, float velocity = 1.0F) noexcept {
-    return Command{CommandType::NoteOn, kInvalidParameterId, note, velocity};
+    return Command{CommandType::NoteOn, kInvalidParameterId, note, 0, velocity};
 }
 
 [[nodiscard]] constexpr Command noteOff(std::uint8_t note) noexcept {
-    return Command{CommandType::NoteOff, kInvalidParameterId, note, 0.0F};
+    return Command{CommandType::NoteOff, kInvalidParameterId, note, 0, 0.0F};
 }
 
 [[nodiscard]] constexpr Command setParam(ParameterId id, float value) noexcept {
-    return Command{CommandType::SetParam, id, 0, value};
+    return Command{CommandType::SetParam, id, 0, 0, value};
+}
+
+/// Selects a factory patch by index. Voices already sounding keep the patch
+/// they captured; the new patch applies to the next note-on.
+[[nodiscard]] constexpr Command selectPatch(std::uint8_t patchIndex) noexcept {
+    return Command{CommandType::SelectPatch, kInvalidParameterId, 0, patchIndex, 0.0F};
 }
 
 [[nodiscard]] constexpr Command allNotesOff() noexcept {
-    return Command{CommandType::AllNotesOff, kInvalidParameterId, 0, 0.0F};
+    return Command{CommandType::AllNotesOff, kInvalidParameterId, 0, 0, 0.0F};
 }
 
 /// Equal-tempered conversion from MIDI note number to frequency in Hz.
