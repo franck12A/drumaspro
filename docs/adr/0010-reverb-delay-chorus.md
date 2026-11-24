@@ -50,7 +50,7 @@ voces, profundidad, velocidad y estéreo ancho. Todo debe quedar detrás de
 ## Consecuencias
 
 - La reverb es el coste dominante del rack. El benchmark con seis insertos y 32
-  voces da 40.0 % del presupuesto; si en otra máquina se acerca al 60 %, la
+  voces da 40–45 % del presupuesto; si en otra máquina se acerca al 60 %, la
   primera palanca es `Quality::Eco`, después una FDN propia de 8 líneas.
 - El delay propio debe mantener el feedback acotado a 0.95 y comprobar
   estabilidad con una entrada impulsiva de 10 s; el test lo hace.

@@ -70,8 +70,8 @@ Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
 Medido en la máquina de desarrollo, Release, bloque de 256 frames a 48 kHz,
 32 voces sonando con Pad (2 osciladores × 4 capas + sub + filtro + 2 ADSR +
 LFO): **1,55-1,93 ms por bloque = 29-36 % del presupuesto de 5,33 ms**. Con los
-seis insertos y el limitador de la Etapa 5A el mismo benchmark mide 2,14 ms
-(40,0 %); ver [`effects.md`](effects.md). El benchmark vive en
+seis insertos y el limitador de la Etapa 5A el mismo benchmark mide 2,1–2,4 ms
+(40–45 %); ver [`effects.md`](effects.md). El benchmark vive en
 `tests/synth/test_performance.cpp` e imprime el dato; no es un umbral
 dependiente de la máquina.
 
