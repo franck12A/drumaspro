@@ -109,5 +109,5 @@ Tests Debug/Release en la máquina de desarrollo:
 - Filtro: máxima resonancia estable; cola silenciosa sin picos de CPU por
   denormales (FTZ/DAZ activo).
 - Callback completo: 32 voces con Pad (unison 4) + 6 insertos + limitador,
-  Release, 256 frames: **2.1–2.4 ms/bloque = 40–45 % del presupuesto de
-  5.33 ms** en tres ejecuciones, latencia reportada 240 muestras (5 ms).
+  Release, 256 frames: **2.0–2.4 ms/bloque = 38–45 % del presupuesto de
+  5.33 ms** en varias ejecuciones, latencia reportada 240 muestras (5 ms).

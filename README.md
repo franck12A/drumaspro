@@ -98,9 +98,9 @@ Mediciones reales de esta entrega:
   −32,5 dBc sin oversampling (61,7 dB de mejora). Limitador: 48 muestras de
   latencia y techo estricto de −1 dBFS.
 - CPU del callback con 32 voces, unison 4, **seis insertos y limitador**
-  (Release, 256 frames): 2,1–2,4 ms por bloque, **40–45 % del presupuesto de
+  (Release, 256 frames): 2,0–2,4 ms por bloque, **38–45 % del presupuesto de
   5,33 ms**, latencia total 240 muestras (5 ms) en la máquina de desarrollo
-  (tres ejecuciones).
+  (varias ejecuciones).
 
 ## Estructura
 
