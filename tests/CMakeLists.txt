@@ -23,6 +23,7 @@ add_executable(
     core/test_smoothed_value.cpp
     core/test_parameter_registry.cpp
     synth/test_sine_oscillator.cpp
+    synth/test_oscillator.cpp
     synth/test_adsr.cpp
     synth/test_voice_pool.cpp
     engine/test_audio_graph.cpp)
