@@ -11,7 +11,8 @@
 //   - live overrides (cutoff, resonance, envelope times) that a SetParam can
 //     move on sounding voices with a ramp, as decided in
 //     docs/adr/0007-patch-switching-and-live-parameters.md;
-//   - master gain and a soft clip that guarantees the output ceiling.
+//   - master gain, the six-slot insert chain and a look-ahead limiter that
+//     guarantees the output ceiling (stage 5A).
 #pragma once
 
 #include <algorithm>
@@ -21,11 +22,13 @@
 #include <vector>
 
 #include "core/AudioTypes.h"
+#include "core/DenormalGuard.h"
 #include "core/IAudioProcessor.h"
 #include "core/ParameterRegistry.h"
 #include "core/SmoothedValue.h"
+#include "fx/EffectChain.h"
+#include "fx/MasterLimiter.h"
 #include "synth/Lfo.h"
-#include "synth/MasterLimiter.h"
 #include "synth/ParameterIds.h"
 #include "synth/PatchBank.h"
 #include "synth/VoicePool.h"
@@ -56,6 +59,10 @@ public:
         masterGain_.prepare(sampleRate_);
         lfo_.prepare(sampleRate_);
         pool_.prepare(sampleRate_);
+        chain_.prepare(core::AudioSpec{sampleRate_, maxBlockSize_, 2});
+        limiter_.prepare(core::AudioSpec{sampleRate_, maxBlockSize_, 2});
+        publishedLatencySamples_.store(chain_.latencySamples() + limiter_.latencySamples(),
+                                       std::memory_order_relaxed);
 
         currentPatchIndex_ = std::clamp(kDefaultPatchIndex, 0, kFactoryPatchCount - 1);
         currentPatch_ = kFactoryPatches[static_cast<std::size_t>(currentPatchIndex_)];
@@ -77,6 +84,8 @@ public:
         std::fill(mixLeft_.begin(), mixLeft_.end(), 0.0F);
         std::fill(mixRight_.begin(), mixRight_.end(), 0.0F);
         masterGain_.reset(registry_.defaultValue(kMasterGain));
+        chain_.reset();
+        limiter_.reset();
         live_ = liveParametersFrom(currentPatch_);
         pool_.setLiveParameters(live_);
         activeVoices_.store(0, std::memory_order_relaxed);
@@ -85,9 +94,12 @@ public:
     /// Audio thread. RT-SAFE.
     void process(std::span<const core::Command> commands, float* const* output, int numChannels,
                  int numFrames) noexcept override {
+        const core::DenormalGuard denormalGuard;
         for (const core::Command& command : commands) {
             applyCommand(command);
         }
+        publishedLatencySamples_.store(chain_.latencySamples() + limiter_.latencySamples(),
+                                       std::memory_order_relaxed);
 
         if (output == nullptr || numChannels <= 0 || numFrames <= 0) {
             return;
@@ -111,13 +123,20 @@ public:
         }
         pool_.renderAdd(mixLeft_.data(), mixRight_.data(), numFrames, lfoBuffer_.data());
 
+        // The insert chain runs on the summed voice bus, then master gain, then
+        // the look-ahead limiter. The limiter's latency is part of the reported
+        // instrument latency (the chain reports its own separately).
+        chain_.process(mixLeft_.data(), mixRight_.data(), numFrames);
         for (int frame = 0; frame < numFrames; ++frame) {
             const float gain = masterGain_.getNextValue();
-            const float left =
-                MasterLimiter::processSample(mixLeft_[static_cast<std::size_t>(frame)] * gain);
-            const float right =
-                MasterLimiter::processSample(mixRight_[static_cast<std::size_t>(frame)] * gain);
+            mixLeft_[static_cast<std::size_t>(frame)] *= gain;
+            mixRight_[static_cast<std::size_t>(frame)] *= gain;
+        }
+        limiter_.process(mixLeft_.data(), mixRight_.data(), numFrames);
 
+        for (int frame = 0; frame < numFrames; ++frame) {
+            const float left = mixLeft_[static_cast<std::size_t>(frame)];
+            const float right = mixRight_[static_cast<std::size_t>(frame)];
             if (numChannels == 1) {
                 output[0][frame] = 0.5F * (left + right);
             } else {
@@ -153,10 +172,42 @@ public:
             case core::CommandType::SetParam:
                 applyParameter(command.param, command.value);
                 break;
+            case core::CommandType::SwapEffect:
+                chain_.swapEffect(command.slot, reinterpret_cast<fx::IEffect*>(command.object));
+                break;
+            case core::CommandType::SetEffectBypass:
+                chain_.setBypass(command.slot, command.value >= 0.5F);
+                break;
+            case core::CommandType::SetEffectMix:
+                chain_.setMix(command.slot, command.value);
+                break;
+            case core::CommandType::SetEffectParam:
+                chain_.setParameter(command.slot, command.param, command.value);
+                break;
             case core::CommandType::None:
                 break;
         }
     }
+
+    /// Audio thread. Effect swaps done on the audio thread are returned here;
+    /// the control thread must poll and delete them.
+    [[nodiscard]] bool takeRetiredEffect(fx::IEffect*& effect) noexcept {
+        return chain_.takeRetired(effect);
+    }
+
+    /// Any thread after prepare. Total insert + limiter latency in samples,
+    /// published once per block so the console can display it without racing
+    /// the chain state.
+    [[nodiscard]] int latencySamples() const noexcept {
+        return publishedLatencySamples_.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] double latencyMs() const noexcept {
+        return 1000.0 * static_cast<double>(latencySamples()) / sampleRate_;
+    }
+
+    /// Audio thread only, like the rest of the live chain state.
+    [[nodiscard]] const fx::EffectChain& effectChain() const noexcept { return chain_; }
 
     /// Any thread. Published once per block; diagnostics only.
     [[nodiscard]] std::uint32_t activeVoices() const noexcept {
@@ -271,6 +322,8 @@ private:
     std::vector<float> mixLeft_;
     std::vector<float> mixRight_;
     std::vector<float> lfoBuffer_;
+    fx::EffectChain chain_;
+    fx::MasterLimiter limiter_;
 
     Patch currentPatch_{};
     LiveParameters live_{};
@@ -281,6 +334,7 @@ private:
     double sampleRate_ = core::kDefaultSampleRate;
     int maxBlockSize_ = 0;
     std::atomic<std::uint32_t> activeVoices_{0};
+    std::atomic<int> publishedLatencySamples_{0};
 };
 
 }  // namespace drumas::synth

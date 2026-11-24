@@ -8,4 +8,4 @@ add_library(drumas::synth ALIAS drumas_synth)
 
 target_include_directories(drumas_synth INTERFACE "${DRUMAS_SRC_DIR}")
 target_compile_features(drumas_synth INTERFACE cxx_std_20)
-target_link_libraries(drumas_synth INTERFACE drumas::core)
+target_link_libraries(drumas_synth INTERFACE drumas::core drumas::fx)
