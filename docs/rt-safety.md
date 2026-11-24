@@ -29,10 +29,15 @@ el código cumple y cómo se comprueba.
 | `core::SpscQueue` | construcción | `push` (productor), `pop` (consumidor) |
 | `core::SmoothedValue` | `prepare` (setup) | `setTargetValue`, `getNextValue` |
 | `core::ScopedDenormalGuard` | — | constructor/destructor |
+| `core::ParameterRegistry` | `add`, `clear` | `find`, `toReal`, `toNormalized`, `clampToRange` |
 | `AudioGraph` | `prepare` | `pushCommand`, `render`, `stats` |
 | `SynthProcessor` | `prepare`, `reset` | `process`, `applyCommand` |
-| `SineVoice` / `VoicePool` | `prepare` | `noteOn`, `noteOff`, `renderAdd` |
-| `SineOscillator` / `AdsrEnvelope` | `prepare` | `nextSample` / `nextValue` |
+| `VoicePool` | `prepare` | `noteOn`, `noteOff`, `renderAdd`, `setLiveParameters` |
+| `SynthVoice` | `prepare`, `reset` | `noteOn`, `noteOff`, `setLiveParameters`, `renderAdd` |
+| `BandLimitedOscillator` | `prepare` | `setFrequency`, `setWaveform`, `setPulseWidth`, `nextSample` |
+| `ResonantLowPassFilter` | `prepare`, `reset` | `setCutoff`, `setResonance`, `processStereo` |
+| `Lfo` | `prepare` | `setRate`, `setShape`, `nextValue` |
+| `AdsrEnvelope` / `MasterLimiter` | `prepare` / — | `nextValue` / `processSample` |
 
 `render()` es el único punto de entrada del hilo de audio: drena la cola, llama
 al procesador y actualiza los contadores atómicos. Todo lo demás (crear la voz,
@@ -55,8 +60,13 @@ cambiar un parámetro) llega como `core::Command` por la cola SPSC.
 
 Todo parámetro continuo que llega a la DSP pasa por `core::SmoothedValue`
 (rampa lineal, 10 ms por defecto). Una ganancia que salta produce un clic; una
-rampa no. Los cambios de nota no usan rampa de frecuencia porque el oscilador
-conserva la fase: un seno con fase constante no tiene discontinuidad de valor.
+rampa no. El cutoff y la resonancia en vivo siguen el mismo camino; además, el
+filtro distingue una modulación por muestra (la aplica directa, sin retardo)
+de un salto aislado de parámetro (lo reparte en 5 ms). Los cambios de nota no
+usan rampa de frecuencia porque el oscilador conserva la fase: una frecuencia
+distinta con fase continua no tiene discontinuidad de valor. Un cambio de patch
+no toca las voces que suenan: cada una conserva el patch que capturó en su
+note-on (ADR 0007).
 
 ## Protección contra denormales
 
@@ -69,8 +79,9 @@ números subnormales y multiplica el coste por muestra.
 1. **Test automático de cero asignaciones.**
    `tests/support/AllocationCounter.cpp` reemplaza los `operator new/delete`
    globales del ejecutable de tests y los cuenta. El test
-   «rendering a block on the audio path does not allocate» prepara todo, hace un
-   bloque de calentamiento, reinicia el contador y renderiza 128 bloques con el
+   «rendering a block on the audio path does not allocate» prepara todo, carga
+   el patch de mayor coste (Pad, unison 4), toca 32 voces, hace un bloque de
+   calentamiento, reinicia el contador y renderiza 128 bloques con el
    `SynthProcessor` real: el contador debe quedarse en cero. `render()` es
    literalmente la función que llama el callback del dispositivo.
 2. **Revisión de código del callback.** El callback
@@ -79,7 +90,8 @@ números subnormales y multiplica el coste por muestra.
    `new`, `mutex`, `printf` ni excepciones; `AudioGraph::render` solo usa
    `std::fill_n`, aritmética, la cola SPSC y atómicos.
 3. **Revisión de contenedores.** `std::vector` aparece solo en `prepare()`
-   (`AudioGraph::planeStorage_`, `SynthProcessor::mix_`); tras `prepare()` no se
-   redimensiona nada.
+   (`AudioGraph::planeStorage_`, `SynthProcessor::mixLeft_/mixRight_/lfoBuffer_`);
+   tras `prepare()` no se redimensiona nada. La voz, el pool, el LFO y el
+   registro de parámetros son arrays de tamaño fijo.
 4. **Ejecución real.** La app de consola muestra glitches de stream, callbacks
    pasados de tiempo y tiempo máximo de callback mientras suena.

@@ -12,7 +12,7 @@ copied verbatim from the vendored `LICENSE` files, not retyped.
 | Dependency | Version | License | Used for | Compliant |
 |---|---|---|---|---|
 | miniaudio | 0.11.26 | Public domain (Unlicense) **or** MIT No Attribution, at our choice | Audio device I/O (WASAPI) | Yes |
-| DSPark | 1.7.0 | MIT | DSP primitives (oscillator, ADSR, smoothing, SPSC queue, denormal guard) | Yes |
+| DSPark | 1.7.0 | MIT | DSP primitives (minBLEP step table, state-variable filter, ADSR, smoothing, SPSC queue, denormal guard, FFT) | Yes |
 | Catch2 | 3.9.1 | Boost Software License 1.0 | Unit tests (build-time only, not distributed) | Yes |
 
 Notes:

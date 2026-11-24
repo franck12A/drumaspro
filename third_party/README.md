@@ -32,8 +32,10 @@ off with `MA_NO_DECODING`, `MA_NO_ENCODING`, `MA_NO_RESOURCE_MANAGER`,
 
 Only the `Core/` headers are vendored (41 headers): `SpscQueue.h`,
 `SmoothedValue.h`, `Oscillator.h`, `EnvelopeGenerator.h`, `DenormalGuard.h`,
-`DspMath.h` and what they include. The rest of the upstream tree is left out on
-purpose:
+`DspMath.h` and what they include. The stage-4 synth additionally uses
+`MinBlepTable.h` (the shared band-limited step table), `StateVariableFilter.h`
+and `FFT.h` (which `MinBlepTable` needs to build itself). The rest of the
+upstream tree is left out on purpose:
 
 - `Effects/`, `Analysis/`, `Music/` and `IO/` are not used in this stage.
 - `DSParkLab/` and `plugin/` bundle their own third-party code (Dear ImGui,

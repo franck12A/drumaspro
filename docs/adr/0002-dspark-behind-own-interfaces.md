@@ -21,6 +21,8 @@ procesador queda detrás de una interfaz propia:
 - `core::ScopedDenormalGuard` envuelve `dspark::DenormalGuard`.
 - `synth::IOscillator` / `synth::IEnvelope` son interfaces propias;
   `SineOscillator` y `AdsrEnvelope` son las implementaciones sobre DSPark.
+  (Etapa 4: `SineOscillator` se sustituyó por `BandLimitedOscillator`, que usa
+  la tabla minBLEP compartida de DSPark; ver [ADR 0004](0004-band-limited-oscillators.md).)
 
 También se fija la versión: el árbol vendorizado es un subconjunto del tag
 `v1.7.0` (commit `e5e13a2`), no de una rama.
