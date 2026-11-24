@@ -24,7 +24,7 @@ por confirmar en una sesión de escucha real.
 - [ ] Cambiar de patch (`F1`/`F2`/`F3`) con un acorde sonando: las notas
       antiguas conservan su timbre y no hay clic; la siguiente nota usa el
       patch nuevo.
-- [ ] Ningún acorde de cuatro notas suena duro ni distorsionado; si el soft-clip
+- [ ] Ningún acorde de cuatro notas suena duro ni distorsionado; si el limitador
       actúa, se oye como compresión suave, no como recorte.
 
 ## Pad (`F1`)
@@ -52,6 +52,34 @@ por confirmar en una sesión de escucha real.
 - [ ] Al subir la velocity (requiere UI o test; la consola envía siempre 1.0) el
       volumen y sobre todo el brillo cambian de forma clara.
 - [ ] En acorde, el registro medio no se satura.
+
+## Efectos (Etapa 5A)
+
+- [ ] Con todos los slots bypass (`Chain:` muestra `-`), el timbre y el nivel
+      son los mismos que en la Etapa 4 salvo 5 ms de latencia.
+- [ ] `Q` + `B` activa reverb. Con `4` sube la mezcla: no hay peine ni cambio de
+      nivel brusco al pasar de seco a mojado.
+- [ ] Reverb: decay corto/largo, damping alto/bajo y pre-delay de 0 a 200 ms se
+      oyen como parámetros musicales, sin zumbidos ni colas que crezcan.
+- [ ] `W` + `B` activa delay. A 100 ms, un golpe en el canal izquierdo responde
+      primero a la izquierda y luego a la derecha (ping-pong).
+- [ ] Delay con feedback cerca de 0.95: repite muchas veces sin crecer ni
+      volverse inestable; el filtro del lazo oscurece las repeticiones.
+- [ ] `E` + `B` activa chorus: el vibrato es suave, no desafina el acorde y el
+      estéreo se abre sin cancelarse en mono.
+- [ ] `R` + `B` activa drive: sube `1` (amount) y el timbre se satura sin
+      volverse más fuerte; `2` (tone) oscurece sin caer en barro; a plena escala
+      no hay chasquidos ni aliasing audible.
+- [ ] `T` + `B` activa el filtro de cadena: LP/HP/BP con `3` (mode) y máxima
+      resonancia no silba de forma incontrolada.
+- [ ] `N` cambia el tipo de un slot mientras suena: el crossfade no hace clic y
+      la latencia de la cadena no salta de forma audible.
+- [ ] Al pasar un slot a bypass con reverb o delay, la cola se apaga de forma
+      natural; no se corta en seco.
+- [ ] El limitador no bombea de forma molesta con acordes sostenidos ni deja
+      pasar ningún pico; no hay distorsión digital.
+- [ ] La consola muestra `Chain:` y la latencia total (240 muestras con la
+      cadena por defecto) de forma coherente con el resumen al salir.
 
 ## Pendiente también de verificación externa
 

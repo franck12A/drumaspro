@@ -1,5 +1,9 @@
 # Parámetros del sintetizador
 
+Los parámetros de los efectos viven en el mismo tipo de registro, uno por
+efecto, y están documentados en [`effects.md`](effects.md). Este archivo cubre
+solo el sintetizador.
+
 Todos los parámetros viven en `core::ParameterRegistry`
 ([`src/core/ParameterRegistry.h`](../src/core/ParameterRegistry.h)): un id
 estable de 32 bits, un nombre único, un rango real, un valor por defecto, una

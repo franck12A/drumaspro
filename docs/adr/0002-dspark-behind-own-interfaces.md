@@ -13,12 +13,12 @@ algún procesador.
 
 ## Decisión
 
-Ningún tipo de DSPark aparece en la API pública de `core` ni de `synth`. Cada
+Ningún tipo de DSPark aparece en la API pública de `core`, `fx` ni `synth`. Cada
 procesador queda detrás de una interfaz propia:
 
 - `core::SpscQueue<T, N>` envuelve `dspark::SpscQueue`.
 - `core::SmoothedValue` envuelve `dspark::SmoothedValue`.
-- `core::ScopedDenormalGuard` envuelve `dspark::DenormalGuard`.
+- `core::DenormalGuard` envuelve `dspark::DenormalGuard`.
 - `synth::IOscillator` / `synth::IEnvelope` son interfaces propias;
   `SineOscillator` y `AdsrEnvelope` son las implementaciones sobre DSPark.
   (Etapa 4: `SineOscillator` se sustituyó por `BandLimitedOscillator`, que usa

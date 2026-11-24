@@ -1,6 +1,7 @@
 # ADR 0005 — Soft clip en la etapa maestra
 
-- **Estado:** aceptado (Etapa 4)
+- **Estado:** aceptado (Etapa 4); su papel de protección principal queda
+  sustituido por el limitador look-ahead de [ADR 0011](0011-master-limiter.md)
 - **Fecha:** 2026-11-24
 
 ## Contexto

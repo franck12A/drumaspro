@@ -1,4 +1,4 @@
-# El sintetizador (Etapa 4)
+# El sintetizador (Etapa 4; cadena de efectos en la Etapa 5A)
 
 Una sola arquitectura de voz parametrizable. Pad, pluck y teclas son **patches**
 (conjuntos de valores) sobre esa voz; añadir un instrumento es añadir una
@@ -36,8 +36,11 @@ note-on ─ patch ──► │   detune + paneo             │
   seno, triángulo, sierra o cuadrado, destino cutoff y vibrato. Un solo LFO
   por muestra para todo el pool: coste determinista y fase coherente en el
   acorde.
-- **Etapa maestra** ([ADR 0005](adr/0005-master-soft-clip.md)): ganancia
-  suavizada y soft-clip con codo en 0.7 y techo garantizado en 1.0.
+- **Etapa maestra:** desde la Etapa 5A, el bus de voces pasa por los seis slots
+  de efectos ([`effects.md`](effects.md)), la ganancia suavizada y el limitador
+  look-ahead ([ADR 0011](adr/0011-master-limiter.md)). El soft-clip antiguo
+  ([ADR 0005](adr/0005-master-soft-clip.md)) queda como safety clip de último
+  recurso, no como protección principal.
 
 ## Patches de fábrica
 
@@ -48,8 +51,8 @@ note-on ─ patch ──► │   detune + paneo             │
 | Keys | piano eléctrico/órgano ligero | 2 capas, 3 cents | 2.5 / 1200 / 0.35 / 800 ms | 3200 Hz, res 0.12, env 1.6 oct | triángulo + seno, brillo muy sensible a velocity |
 
 La calibración de nivel está pensada para que un acorde de 4 notas no llegue
-al codo del soft-clip. En las pruebas offline, el pico de un acorde de cuatro
-notas con Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
+al limitador. En las pruebas offline, el pico de un acorde de cuatro notas con
+Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
 
 ## Cambio de patch y parámetros en vivo
 
@@ -66,9 +69,11 @@ notas con Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
 
 Medido en la máquina de desarrollo, Release, bloque de 256 frames a 48 kHz,
 32 voces sonando con Pad (2 osciladores × 4 capas + sub + filtro + 2 ADSR +
-LFO): **1,55-1,93 ms por bloque = 29-36 % del presupuesto de 5,33 ms**. El
-benchmark vive en `tests/synth/test_performance.cpp` e imprime el dato; no es
-un umbral dependiente de la máquina.
+LFO): **1,55-1,93 ms por bloque = 29-36 % del presupuesto de 5,33 ms**. Con los
+seis insertos y el limitador de la Etapa 5A el mismo benchmark mide 2,14 ms
+(40,0 %); ver [`effects.md`](effects.md). El benchmark vive en
+`tests/synth/test_performance.cpp` e imprime el dato; no es un umbral
+dependiente de la máquina.
 
 ## Contratos de hilos
 
