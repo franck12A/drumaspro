@@ -42,6 +42,12 @@ enum class CommandType : std::uint8_t {
     SetParam,
     SelectPatch,
     AllNotesOff,
+    // Effect-chain commands (stage 5). The effect object pointer is an opaque
+    // address built on the control thread; the audio thread only adopts it.
+    SwapEffect,
+    SetEffectBypass,
+    SetEffectMix,
+    SetEffectParam,
 };
 
 /// One event, small enough to travel through a lock-free queue by value.
@@ -53,6 +59,10 @@ struct Command {
     std::uint8_t note = 0;
     std::uint8_t patch = 0;
     float value = 0.0F;
+    /// Effect slot (0..5). Ignored by synth commands.
+    std::uint8_t slot = 0;
+    /// Opaque effect pointer for SwapEffect; zero for every other command.
+    std::uintptr_t object = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<Command>,
@@ -78,6 +88,27 @@ static_assert(std::is_trivially_copyable_v<Command>,
 
 [[nodiscard]] constexpr Command allNotesOff() noexcept {
     return Command{CommandType::AllNotesOff, kInvalidParameterId, 0, 0, 0.0F};
+}
+
+/// Hands ownership of a prepared effect to the audio thread. The control thread
+/// must keep the object alive until the chain returns it through its retirement
+/// queue; it must never delete it after a successful push.
+[[nodiscard]] constexpr Command swapEffect(std::uint8_t slot, std::uintptr_t effect) noexcept {
+    return Command{CommandType::SwapEffect, kInvalidParameterId, 0, 0, 0.0F, slot, effect};
+}
+
+[[nodiscard]] constexpr Command setEffectBypass(std::uint8_t slot, bool bypassed) noexcept {
+    return Command{CommandType::SetEffectBypass, kInvalidParameterId, 0, 0,
+                   bypassed ? 1.0F : 0.0F, slot, 0};
+}
+
+[[nodiscard]] constexpr Command setEffectMix(std::uint8_t slot, float wet) noexcept {
+    return Command{CommandType::SetEffectMix, kInvalidParameterId, 0, 0, wet, slot, 0};
+}
+
+[[nodiscard]] constexpr Command setEffectParam(std::uint8_t slot, ParameterId id,
+                                               float value) noexcept {
+    return Command{CommandType::SetEffectParam, id, 0, 0, value, slot, 0};
 }
 
 /// Equal-tempered conversion from MIDI note number to frequency in Hz.

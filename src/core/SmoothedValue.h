@@ -39,6 +39,13 @@ public:
         impl_.reset(0.0F);
     }
 
+    /// Setup thread. Exponential smoothing is range-independent; use it for
+    /// parameters measured in Hz, milliseconds or samples, where the linear
+    /// ramp's normalized step would be far too slow.
+    void setExponential() noexcept {
+        impl_.setSmoothingType(dspark::SmoothedValue<float>::SmoothingType::Exponential);
+    }
+
     /// Audio thread. Starts a ramp towards `value`.
     void setTargetValue(float value) noexcept { impl_.setTargetValue(value); }
 
