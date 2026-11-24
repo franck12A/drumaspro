@@ -14,6 +14,7 @@
 #include "core/AudioTypes.h"
 #include "core/IAudioProcessor.h"
 #include "core/SmoothedValue.h"
+#include "synth/MasterLimiter.h"
 #include "synth/ParameterIds.h"
 #include "synth/VoicePool.h"
 
@@ -78,10 +79,11 @@ public:
 
         for (int frame = 0; frame < numFrames; ++frame) {
             const float gain = masterGain_.getNextValue();
-            // A real limiter arrives with the effects stage; until then a hard
-            // clip keeps a full pool from sending garbage to the speakers.
+            // Soft clip instead of the stage-3 hard clip: transparent below the
+            // knee, guaranteed ceiling above it. See
+            // docs/adr/0005-master-soft-clip.md for the trade-off.
             const float sample =
-                std::clamp(mix_[static_cast<std::size_t>(frame)] * gain, -1.0F, 1.0F);
+                MasterLimiter::processSample(mix_[static_cast<std::size_t>(frame)] * gain);
             for (int channel = 0; channel < numChannels; ++channel) {
                 output[channel][frame] = sample;
             }
