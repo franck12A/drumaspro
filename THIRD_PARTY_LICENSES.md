@@ -12,7 +12,7 @@ copied verbatim from the vendored `LICENSE` files, not retyped.
 | Dependency | Version | License | Used for | Compliant |
 |---|---|---|---|---|
 | miniaudio | 0.11.26 | Public domain (Unlicense) **or** MIT No Attribution, at our choice | Audio device I/O (WASAPI) | Yes |
-| DSPark | 1.7.0 | MIT | DSP primitives (minBLEP step table, state-variable filter, ADSR, smoothing, SPSC queue, denormal guard, FFT) | Yes |
+| DSPark | 1.7.0 | MIT | DSP primitives (minBLEP step table, state-variable filter, ADSR, smoothing, SPSC queue, denormal guard, FFT) and the reverb/chorus/limiter effects | Yes |
 | Catch2 | 3.9.1 | Boost Software License 1.0 | Unit tests (build-time only, not distributed) | Yes |
 
 Notes:
@@ -24,7 +24,9 @@ Notes:
 - Catch2 is fetched at configure time (`FetchContent`, pinned to the commit of
   tag v3.9.1) and is only linked into the test executable. It never ships.
 - DSPark is vendored as source. Its MIT notice travels with the compiled binary
-  in this file.
+  in this file. The three `Effects/` headers added for stage 5
+  (`AlgorithmicReverb.h`, `Chorus.h`, `Limiter.h`) are under the same MIT
+  license; hashes are recorded in `third_party/README.md`.
 
 ## miniaudio 0.11.26
 

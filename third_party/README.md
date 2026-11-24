@@ -30,21 +30,28 @@ off with `MA_NO_DECODING`, `MA_NO_ENCODING`, `MA_NO_RESOURCE_MANAGER`,
 
 ## DSPark
 
-Only the `Core/` headers are vendored (41 headers): `SpscQueue.h`,
-`SmoothedValue.h`, `Oscillator.h`, `EnvelopeGenerator.h`, `DenormalGuard.h`,
-`DspMath.h` and what they include. The stage-4 synth additionally uses
-`MinBlepTable.h` (the shared band-limited step table), `StateVariableFilter.h`
-and `FFT.h` (which `MinBlepTable` needs to build itself). The rest of the
-upstream tree is left out on purpose:
+The `Core/` headers (41 headers) are vendored: `SpscQueue.h`, `SmoothedValue.h`,
+`Oscillator.h`, `EnvelopeGenerator.h`, `DenormalGuard.h`, `DspMath.h` and what
+they include. The synth uses `MinBlepTable.h`, `StateVariableFilter.h` and
+`FFT.h`; the stage-5 effects add the following files from `Effects/`:
 
-- `Effects/`, `Analysis/`, `Music/` and `IO/` are not used in this stage.
-- `DSParkLab/` and `plugin/` bundle their own third-party code (Dear ImGui,
-  miniaudio, VST3/CLAP SDK headers) under different licenses; they must never
-  enter this repository.
+| File | SHA-256 |
+|---|---|
+| `Effects/AlgorithmicReverb.h` | `175c6c1e94358e80f19cab4629b42a28b82ed3096fe92239654147486eb007aa` |
+| `Effects/Chorus.h` | `a0870fd536b0dfb06bf8cd539b752ba71bda84e68002aac04aa145a7e9036af6` |
+| `Effects/Limiter.h` | `658d331f2ee6fafb29c25d701eb98c288a0a1799b19a4c70ab5d2565a8c1951c` |
+
+The rest of the upstream tree is left out on purpose:
+
+- `Analysis/`, `Music/`, `IO/`, `DSParkLab/` and `plugin/` are not used. The
+  last two bundle their own third-party code (Dear ImGui, miniaudio, VST3/CLAP
+  SDK headers) under different licenses; they must never enter this repository.
+- `Effects/Delay.h` is not vendored: the ping-pong delay is our own wrapper over
+  `Core/RingBuffer.h` and needs to cross-feed channels.
 
 To add another upstream header, take it from the same tag
 (`v1.7.0`, commit `e5e13a2`) so the vendored tree stays a consistent subset, and
-update this file.
+update this file and `THIRD_PARTY_LICENSES.md`.
 
 ### Threading contract used
 

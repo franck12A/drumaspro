@@ -20,9 +20,9 @@ if (MSVC)
 endif ()
 
 # ---------------------------------------------------------------------------
-# DSPark 1.7.0 -- header-only C++20 DSP, MIT. Only the Core/ headers are
-# vendored for this stage; the include directory is SYSTEM so its diagnostics
-# never take part in our /WX policy.
+# DSPark 1.7.0 -- header-only C++20 DSP, MIT. The Core/ headers and the
+# Effects/ headers used by the stage-5 chain are vendored; the include directory
+# is SYSTEM so its diagnostics never take part in our /WX policy.
 # ---------------------------------------------------------------------------
 add_library(drumas_dspark INTERFACE)
 add_library(drumas::dspark ALIAS drumas_dspark)
