@@ -124,7 +124,9 @@ public:
                 applyDescription(index, description.slots[index]);
             } else {
                 description_.slots[index] = description.slots[index];
+                description_.slots[index].effectType = kNoEffectType;
                 description_.slots[index].bypass = slots_[index].bypass;
+                description_.slots[index].parameterCount = 0;
             }
         }
     }
