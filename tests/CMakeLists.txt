@@ -32,7 +32,8 @@ add_executable(
     synth/test_performance.cpp
     fx/test_effect_chain.cpp
     fx/test_effects.cpp
-    engine/test_audio_graph.cpp)
+    engine/test_audio_graph.cpp
+    engine/test_shutdown.cpp)
 
 target_include_directories(drumas_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(drumas_tests PRIVATE cxx_std_20)

@@ -108,6 +108,7 @@ private:
 
     Config config_{};
     AudioGraph graph_;
+    core::IAudioProcessor* processor_ = nullptr;
     std::unique_ptr<ma_context> context_;
     std::unique_ptr<ma_device> device_;
     std::string lastError_;

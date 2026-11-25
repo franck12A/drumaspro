@@ -10,6 +10,8 @@
 //   - pushCommand(): producer side of the queue (control thread, or the console
 //     app's main loop). RT-SAFE.
 //   - render(): consumer side. Audio thread only. RT-SAFE.
+//   - popPendingCommand(): control thread only, with the stream stopped and no
+//     concurrent producer.
 //   - stats(): any thread (atomics).
 #pragma once
 
@@ -71,6 +73,12 @@ public:
     /// Producer side. Returns false when the queue is full (the event is
     /// dropped and counted).
     [[nodiscard]] bool pushCommand(const core::Command& command) noexcept;
+
+    /// Control thread, only while the stream is stopped and the producer is
+    /// quiescent. Removes one command that the audio thread did not apply.
+    [[nodiscard]] bool popPendingCommand(core::Command& command) noexcept {
+        return commands_.pop(command);
+    }
 
     /// Audio thread. Renders one interleaved block, draining the command queue
     /// first. Blocks larger than the prepared maximum are split internally.

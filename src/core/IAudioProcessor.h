@@ -31,6 +31,11 @@ public:
     /// safe in the general case; control thread only.
     virtual void reset() = 0;
 
+    /// Releases resources owned by a command that was accepted by the engine
+    /// queue but never applied. Called on the control thread with the stream
+    /// stopped. Most commands own no resources.
+    virtual void discardCommand(const Command& /*command*/) noexcept {}
+
     /// Renders `numFrames` frames into planar, non-interleaved channel buffers
     /// (`output[ch][frame]`), consuming the commands queued for this block.
     ///

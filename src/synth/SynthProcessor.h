@@ -91,6 +91,14 @@ public:
         activeVoices_.store(0, std::memory_order_relaxed);
     }
 
+    /// Control thread, stream stopped. Releases an effect whose SwapEffect
+    /// command was queued but never reached the audio thread.
+    void discardCommand(const core::Command& command) noexcept override {
+        if (command.type == core::CommandType::SwapEffect && command.object != 0) {
+            delete reinterpret_cast<fx::IEffect*>(command.object);
+        }
+    }
+
     /// Audio thread. RT-SAFE.
     void process(std::span<const core::Command> commands, float* const* output, int numChannels,
                  int numFrames) noexcept override {

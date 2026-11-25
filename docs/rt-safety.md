@@ -47,6 +47,13 @@ el código cumple y cómo se comprueba.
 al procesador y actualiza los contadores atómicos. Todo lo demás (crear la voz,
 cambiar un parámetro) llega como `core::Command` por la cola SPSC.
 
+Al cerrar, primero se para el dispositivo. Con el productor quiescente, el hilo
+de control drena los comandos que quedaron en la cola mediante
+`AudioGraph::popPendingCommand()`; cada procesador libera los recursos propios
+de los comandos no aplicados (`SwapEffect` puede poseer un efecto preparado).
+Después se resetea el procesador y se libera el dispositivo. No se debe llamar a
+`popPendingCommand()` mientras el callback o el productor estén activos.
+
 ## Comunicación entre hilos
 
 - **Control → audio**: `core::SpscQueue<core::Command, 512>`. Un productor, un

@@ -83,6 +83,7 @@ bool AudioEngine::initialize(const Config& config, core::IAudioProcessor& proces
         static_cast<int>(config.channels)};
     graph_.prepare(spec);
     graph_.setProcessor(&processor);
+    processor_ = &processor;
     processor.prepare(spec);
 
     context_ = std::make_unique<ma_context>();
@@ -155,7 +156,19 @@ void AudioEngine::stop() noexcept {
 }
 
 void AudioEngine::shutdown() noexcept {
-    stop();
+    if (device_ != nullptr) {
+        (void)ma_device_stop(device_.get());
+    }
+    running_.store(false, std::memory_order_release);
+
+    core::Command command;
+    while (graph_.popPendingCommand(command)) {
+        if (processor_ != nullptr) {
+            processor_->discardCommand(command);
+        }
+    }
+    graph_.reset();
+
     if (device_ != nullptr) {
         ma_device_uninit(device_.get());
         device_.reset();
@@ -164,6 +177,8 @@ void AudioEngine::shutdown() noexcept {
         ma_context_uninit(context_.get());
         context_.reset();
     }
+    graph_.setProcessor(nullptr);
+    processor_ = nullptr;
 }
 
 AudioEngine::DeviceInfo AudioEngine::deviceInfo() const {
