@@ -49,3 +49,7 @@ desktop.ini
 
 # Local scratch
 .tmp-ref/
+
+# Local toolchain (Qt SDK downloaded into the tree, never committed)
+.tools/
+aqtinstall.log
