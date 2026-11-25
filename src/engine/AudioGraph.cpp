@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cmath>
 #include <span>
 
 namespace drumas::engine {
@@ -20,6 +21,7 @@ using Clock = std::chrono::steady_clock;
 /// block size the device actually uses.
 constexpr double kGlitchThresholdBlocks = 2.0;
 constexpr std::uint64_t kNsPerMs = 1000000;
+constexpr float kPeakDecayPerSecond = 2.0F;
 
 }  // namespace
 
@@ -52,6 +54,8 @@ void AudioGraph::prepare(const core::AudioSpec& spec) {
     lateBlocks_.store(0, std::memory_order_relaxed);
     overdueBlocks_.store(0, std::memory_order_relaxed);
     maxCallbackMicros_.store(0, std::memory_order_relaxed);
+    outputPeakAudioThread_ = 0.0F;
+    outputPeak_.store(0.0F, std::memory_order_relaxed);
 }
 
 void AudioGraph::reset() noexcept {
@@ -60,6 +64,8 @@ void AudioGraph::reset() noexcept {
     }
     driftAnchorTicks_ = 0;
     driftFrames_ = 0;
+    outputPeakAudioThread_ = 0.0F;
+    outputPeak_.store(0.0F, std::memory_order_relaxed);
 }
 
 bool AudioGraph::pushCommand(const core::Command& command) noexcept {
@@ -141,6 +147,24 @@ void AudioGraph::render(float* interleavedOutput, int channels, int numFrames) n
         offset += slice;
     }
 
+    float blockPeak = 0.0F;
+    if (channels > 0) {
+        const std::size_t sampleCount =
+            static_cast<std::size_t>(numFrames) * static_cast<std::size_t>(channels);
+        for (std::size_t sample = 0; sample < sampleCount; ++sample) {
+            const float magnitude = std::fabs(interleavedOutput[sample]);
+            if (magnitude > blockPeak) {
+                blockPeak = magnitude;
+            }
+        }
+    }
+    const float decay =
+        kPeakDecayPerSecond * static_cast<float>(numFrames) /
+        static_cast<float>(std::max(spec_.sampleRate, 1.0));
+    outputPeakAudioThread_ =
+        std::max(blockPeak, std::max(0.0F, outputPeakAudioThread_ - decay));
+    outputPeak_.store(outputPeakAudioThread_, std::memory_order_relaxed);
+
     const auto end = Clock::now();
     const double elapsedMs = std::chrono::duration<double, std::milli>(end - start).count();
     const auto elapsedMicros = static_cast<std::uint64_t>(
@@ -206,6 +230,7 @@ AudioGraph::Stats AudioGraph::stats() const noexcept {
     snapshot.lastBlockFrames = lastBlockFrames_.load(std::memory_order_relaxed);
     snapshot.minBlockFrames = minBlockFrames_.load(std::memory_order_relaxed);
     snapshot.maxBlockFrames = maxBlockFrames_.load(std::memory_order_relaxed);
+    snapshot.outputPeak = outputPeak_.load(std::memory_order_relaxed);
     return snapshot;
 }
 

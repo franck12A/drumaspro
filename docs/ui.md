@@ -46,6 +46,8 @@ redistribuidas.
   de comandos NoteOn/NoteOff y los espejos de parámetros/cadena; no conoce Qt.
 - `EngineBridge` es la única fachada QObject. Su `QTimer` refresca el estado
   cada 25 ms (40 Hz), leyendo contadores atómicos y actualizando los modelos.
+  El medidor muestra el pico real de la salida con decaimiento; las voces
+  activas permanecen indicadas aparte en el LCD del motor.
 - Los modelos de parámetros, patches, cadena y acordes alimentan los
   componentes QML. Un cambio de efecto prepara el objeto en el hilo de control
   antes de transferir su propiedad por la cola.

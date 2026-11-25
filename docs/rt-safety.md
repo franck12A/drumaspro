@@ -60,11 +60,12 @@ Después se resetea el procesador y se libera el dispositivo. No se debe llamar 
   consumidor, sin locks ni asignaciones. Si la cola se llena, el evento se
   descarta y se cuenta (`commandsDropped`); nunca se bloquea al hilo de UI.
 - **Audio → control**: `std::atomic` por valor. Los contadores de bloque,
-  frames, glitches, callbacks pasados de tiempo, tiempo máximo, número de voces
-  activas y latencia total son palabras atómicas relajadas: el hilo de audio
-  nunca se bloquea y la UI puede leer un valor ligeramente obsoleto, que es lo
-  correcto para un medidor. Además, el audio devuelve los efectos retirados por
-  `core::SpscQueue<fx::IEffect*, 16>`; el control es el único que los destruye.
+  frames, glitches, callbacks pasados de tiempo, tiempo máximo, pico de salida,
+  número de voces activas y latencia total son palabras atómicas relajadas: el
+  hilo de audio nunca se bloquea y la UI puede leer un valor ligeramente
+  obsoleto, que es lo correcto para un medidor. Además, el audio devuelve los
+  efectos retirados por `core::SpscQueue<fx::IEffect*, 16>`; el control es el
+  único que los destruye.
 - **Audio → audio**: los procesadores no son thread-safe a propósito (sin
   barreras en el camino caliente). Los setters se llaman solo desde el hilo de
   audio, o desde el hilo de control con el stream parado.

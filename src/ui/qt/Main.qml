@@ -76,8 +76,8 @@ ApplicationWindow {
                 }
 
                 LevelMeter {
-                    label: "VOICES"
-                    value: engineBridge.activeVoices / 32
+                    label: "OUTPUT"
+                    value: engineBridge.outputPeak
                 }
             }
 

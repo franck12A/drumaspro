@@ -32,7 +32,7 @@ public:
             lastCommandType = command.type;
         }
         for (int channel = 0; channel < numChannels; ++channel) {
-            const float value = static_cast<float>(channel + 1) * 0.1F;
+            const float value = silent ? 0.0F : static_cast<float>(channel + 1) * 0.1F;
             std::fill_n(output[channel], numFrames, value);
         }
         lastFrames = numFrames;
@@ -45,6 +45,7 @@ public:
     drumas::core::CommandType lastCommandType = drumas::core::CommandType::None;
     int lastFrames = 0;
     int blockCount = 0;
+    bool silent = false;
 };
 
 }  // namespace
@@ -89,6 +90,24 @@ TEST_CASE("audio graph interleaves planar channels in device order", "[engine][g
         REQUIRE(interleaved[static_cast<std::size_t>(frame) * 2] == 0.1F);
         REQUIRE(interleaved[static_cast<std::size_t>(frame) * 2 + 1] == 0.2F);
     }
+}
+
+TEST_CASE("audio graph publishes output peak and decays it without blocking",
+          "[engine][graph][realtime]") {
+    ProbeProcessor processor;
+    drumas::engine::AudioGraph graph;
+    const drumas::core::AudioSpec spec{48000.0, 256, 2};
+    graph.prepare(spec);
+    graph.setProcessor(&processor);
+    std::vector<float> output(2 * 256, 0.0F);
+
+    graph.render(output.data(), 2, 256);
+    REQUIRE(graph.stats().outputPeak == Catch::Approx(0.2F));
+
+    processor.silent = true;
+    graph.render(output.data(), 2, 256);
+    REQUIRE(graph.stats().outputPeak > 0.0F);
+    REQUIRE(graph.stats().outputPeak < 0.2F);
 }
 
 TEST_CASE("audio graph splits blocks larger than the prepared maximum", "[engine][graph]") {

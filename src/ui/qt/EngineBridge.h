@@ -26,6 +26,7 @@ class EngineBridge final : public QObject {
     Q_PROPERTY(ChordModel* chordModel READ chordModel CONSTANT)
     Q_PROPERTY(bool running READ running NOTIFY statusChanged)
     Q_PROPERTY(int activeVoices READ activeVoices NOTIFY statusChanged)
+    Q_PROPERTY(double outputPeak READ outputPeak NOTIFY statusChanged)
     Q_PROPERTY(qulonglong xruns READ xruns NOTIFY statusChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
@@ -39,6 +40,7 @@ public:
     [[nodiscard]] ChordModel* chordModel() noexcept { return &chordModel_; }
     [[nodiscard]] bool running() const noexcept { return engine_.isRunning(); }
     [[nodiscard]] int activeVoices() const noexcept;
+    [[nodiscard]] double outputPeak() const noexcept { return outputPeak_; }
     [[nodiscard]] qulonglong xruns() const noexcept {
         return static_cast<qulonglong>(xruns_.load(std::memory_order_relaxed));
     }
@@ -81,6 +83,7 @@ private:
     QTimer timer_;
     QString error_;
     std::atomic<std::uint64_t> xruns_{0};
+    double outputPeak_ = 0.0;
     bool initialized_ = false;
 };
 

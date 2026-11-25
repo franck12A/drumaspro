@@ -195,6 +195,7 @@ int EngineBridge::activeVoices() const noexcept {
 void EngineBridge::refreshStatus() {
     const engine::AudioGraph::Stats stats = engine_.stats();
     xruns_.store(stats.lateBlocks + stats.overdueBlocks, std::memory_order_relaxed);
+    outputPeak_ = static_cast<double>(stats.outputPeak);
     Q_EMIT statusChanged();
 }
 

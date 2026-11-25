@@ -27,6 +27,9 @@
 
 namespace drumas::engine {
 
+static_assert(std::atomic<float>::is_always_lock_free,
+              "The output peak meter requires a lock-free atomic float");
+
 class AudioGraph {
 public:
     /// Queue size. Power of two; usable capacity is one less. Sized so that a
@@ -60,6 +63,7 @@ public:
         std::uint32_t lastBlockFrames = 0;
         std::uint32_t minBlockFrames = 0;
         std::uint32_t maxBlockFrames = 0;
+        float outputPeak = 0.0F;
     };
 
     /// Control thread, stream stopped. Allocates the planar scratch buffers.
@@ -123,6 +127,8 @@ private:
     std::atomic<std::uint32_t> maxBlockFrames_{0};
     std::atomic<std::uint64_t> overdueBlocks_{0};
     std::atomic<std::uint64_t> maxCallbackMicros_{0};
+    float outputPeakAudioThread_ = 0.0F;
+    std::atomic<float> outputPeak_{0.0F};
 };
 
 }  // namespace drumas::engine

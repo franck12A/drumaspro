@@ -25,7 +25,8 @@ Column {
                 width: Theme.compactPadding
                 height: Theme.displaySize
                 radius: Theme.corner / 2
-                color: index < Math.round(root.value * root.bars) ? Theme.meterOn : Theme.meterOff
+                color: index < Math.round(Math.max(0, Math.min(1, root.value)) * root.bars)
+                       ? Theme.meterOn : Theme.meterOff
             }
         }
     }
