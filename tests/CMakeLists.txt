@@ -6,6 +6,10 @@
 # to "configure and go" without a second package manager, a toolchain file or a
 # baseline that has to be kept in sync. The pin below is the commit of tag
 # v3.9.1.
+if (DRUMAS_BUILD_UI AND Qt6_FOUND)
+    add_subdirectory(ui)
+endif ()
+
 include(FetchContent)
 
 FetchContent_Declare(
