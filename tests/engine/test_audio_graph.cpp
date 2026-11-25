@@ -126,6 +126,30 @@ TEST_CASE("audio graph counts dropped commands when the queue is full", "[engine
     REQUIRE(graph.stats().commandsDropped == 5);
 }
 
+TEST_CASE("audio graph rejects command batches without partially enqueueing them",
+          "[engine][graph][batch]") {
+    ProbeProcessor processor;
+    drumas::engine::AudioGraph graph;
+    const drumas::core::AudioSpec spec{48000.0, 256, 2};
+    graph.prepare(spec);
+    graph.setProcessor(&processor);
+
+    constexpr std::size_t kAcceptedBeforeBatch =
+        drumas::engine::AudioGraph::kCommandCapacity - 2;
+    for (std::size_t index = 0; index < kAcceptedBeforeBatch; ++index) {
+        REQUIRE(graph.pushCommand(drumas::core::noteOn(60, 1.0F)));
+    }
+
+    const std::array<drumas::core::Command, 2> chordCommands{
+        drumas::core::noteOn(64, 1.0F), drumas::core::noteOn(67, 1.0F)};
+    REQUIRE_FALSE(graph.pushCommands(chordCommands));
+    REQUIRE(graph.stats().commandsDropped == chordCommands.size());
+
+    std::vector<float> output(2 * 256, 0.0F);
+    graph.render(output.data(), 2, 256);
+    REQUIRE(processor.commandCount == kAcceptedBeforeBatch);
+}
+
 TEST_CASE("audio graph renders silence without a processor", "[engine][graph]") {
     drumas::engine::AudioGraph graph;
 

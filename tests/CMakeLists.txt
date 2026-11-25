@@ -36,7 +36,8 @@ add_executable(
     fx/test_effect_chain.cpp
     fx/test_effects.cpp
     engine/test_audio_graph.cpp
-    engine/test_shutdown.cpp)
+    engine/test_shutdown.cpp
+    bridge/test_bridge.cpp)
 
 target_include_directories(drumas_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(drumas_tests PRIVATE cxx_std_20)
@@ -48,6 +49,7 @@ target_link_libraries(
             drumas::music
             drumas::synth
             drumas::engine
+            drumas::bridge
             Catch2::Catch2WithMain)
 
 # Tests are timing-sensitive by nature (block timing) but must never hang CI.

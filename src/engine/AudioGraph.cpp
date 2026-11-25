@@ -70,6 +70,15 @@ bool AudioGraph::pushCommand(const core::Command& command) noexcept {
     return true;
 }
 
+bool AudioGraph::pushCommands(std::span<const core::Command> commands) noexcept {
+    if (!commands_.pushBatch(commands)) {
+        commandsDropped_.fetch_add(static_cast<std::uint64_t>(commands.size()),
+                                   std::memory_order_relaxed);
+        return false;
+    }
+    return true;
+}
+
 void AudioGraph::render(float* interleavedOutput, int channels, int numFrames) noexcept {
     if (interleavedOutput == nullptr || numFrames <= 0) {
         return;

@@ -10,7 +10,8 @@
 // Thread contract (enforced by usage, not by the type system):
 //   - exactly ONE thread calls push()      (producer: control/UI thread)
 //   - exactly ONE thread calls pop()       (consumer: audio thread)
-//   - sizeApprox()/empty() are diagnostics of either thread, never control flow
+//   - sizeApprox()/empty() are diagnostics; callers must not use them for
+//     control flow (pushBatch uses sizeApprox internally for its SPSC preflight)
 //   - push()/pop() are wait-free, lock-free, allocation-free, and do not throw.
 //
 // Real-time safety: push() and pop() are RT-SAFE. Construction/destruction are
@@ -18,6 +19,7 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <type_traits>
 
 #include <dspark/Core/SpscQueue.h>
@@ -46,6 +48,20 @@ public:
     /// Producer side. Returns false when the queue is full; the item is dropped
     /// and the caller decides what to do (for note events, dropping is silent).
     [[nodiscard]] bool push(const T& item) noexcept { return impl_.push(item); }
+
+    /// Producer side. Appends every item or none. With one producer, the queue
+    /// can only gain free slots while the consumer runs after the preflight.
+    [[nodiscard]] bool pushBatch(std::span<const T> items) noexcept {
+        if (items.size() > capacity() || sizeApprox() > capacity() - items.size()) {
+            return false;
+        }
+        for (const T& item : items) {
+            if (!impl_.push(item)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /// Consumer side. Returns false when the queue is empty.
     [[nodiscard]] bool pop(T& item) noexcept { return impl_.pop(item); }

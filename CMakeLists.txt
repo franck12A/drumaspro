@@ -75,6 +75,7 @@ add_subdirectory(src/fx)
 add_subdirectory(src/music)
 add_subdirectory(src/synth)
 add_subdirectory(src/engine)
+add_subdirectory(src/bridge)
 
 if (DRUMAS_BUILD_APP)
     add_subdirectory(src/app)

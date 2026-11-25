@@ -18,6 +18,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "core/AudioTypes.h"
@@ -73,6 +74,10 @@ public:
     /// Producer side. Returns false when the queue is full (the event is
     /// dropped and counted).
     [[nodiscard]] bool pushCommand(const core::Command& command) noexcept;
+
+    /// Producer side. Enqueues every command or none. A rejected batch counts
+    /// each command as dropped.
+    [[nodiscard]] bool pushCommands(std::span<const core::Command> commands) noexcept;
 
     /// Control thread, only while the stream is stopped and the producer is
     /// quiescent. Removes one command that the audio thread did not apply.
