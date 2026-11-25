@@ -23,6 +23,8 @@ dispositivo de audio. No marcar ningún punto como verificado sin ejecutarlo.
   desincronizar los modelos.
 - [ ] Mantener pulsado cada botón de acorde produce el acorde indicado y al
   soltarlo se oyen releases limpios.
+- [ ] Las teclas 1–7 producen los mismos acordes; auto-repeat no dispara notas
+  adicionales y los controles enfocados conservan sus teclas.
 - [ ] El medidor responde al nivel de salida y cae gradualmente al terminar el
   sonido; el LCD indica por separado las voces activas.
 - [ ] Mover cada knob cambia el parámetro esperado sin saltos audibles.

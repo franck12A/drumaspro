@@ -59,14 +59,17 @@ El tema centraliza colores, tipografía, dimensiones y espaciado en
 ámbar. El layout se compacta para el mínimo de 960×600 y mantiene scroll como
 respaldo para restricciones de espacio del sistema. Los controles QML usan el
 estilo `Basic` de Qt Quick Controls para que sus fondos y estados sean
-personalizables.
+personalizables. Cuando el foco está fuera de los controles, las teclas 1–7
+mantienen y liberan los siete acordes diatónicos; el auto-repeat se ignora.
+Pulsa el encabezado DRUMASPRO para devolver el foco a los atajos tras usar un
+selector.
 
 ## Pruebas y captura
 
 Con `DRUMAS_BUILD_UI=ON`, `ctest --preset vs2026-release` incluye `qt_ui_tests`.
 Ese test carga la pantalla en la plataforma `offscreen`, comprueba los modelos
-y guarda capturas a 1280×720 y 960×600 para inspección. No abre un dispositivo
-de audio. Las imágenes son
+y compara los batches enviados por botones y atajos; también guarda capturas a
+1280×720 y 960×600 para inspección. No abre un dispositivo de audio. Las imágenes son
 evidencia de render QML y no certifican el aspecto en una ventana nativa ni la
 calidad sonora. La revisión manual de audio/dispositivo sigue pendiente; véase
 [`ui-checklist.md`](./ui-checklist.md).

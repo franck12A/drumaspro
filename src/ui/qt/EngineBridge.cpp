@@ -11,9 +11,11 @@
 
 namespace drumas::ui {
 
-EngineBridge::EngineBridge(QObject* parent)
+EngineBridge::EngineBridge(QObject* parent, bridge::CommandSink* commandSink)
     : QObject(parent),
-      commandSink_(engine_),
+      audioCommandSink_(engine_),
+      commandSink_(commandSink != nullptr ? commandSink : &audioCommandSink_),
+      commandSinkInjected_(commandSink != nullptr),
       parameterModel_(this),
       patchModel_(this),
       chainModel_(this),
@@ -62,7 +64,7 @@ bool EngineBridge::setParameter(quint32 id, double value) {
     }
     const auto parameterId = static_cast<core::ParameterId>(id);
     const float realValue = static_cast<float>(value);
-    if (!commandSink_.push(core::setParam(parameterId, realValue)) ||
+    if (!commandSink_->push(core::setParam(parameterId, realValue)) ||
         !parameterMirror_.set(parameterId, realValue)) {
         return false;
     }
@@ -77,7 +79,7 @@ bool EngineBridge::selectPatch(int index) {
     if (!initialized_ || index < 0 || index >= synth::kFactoryPatchCount) {
         return false;
     }
-    return commandSink_.push(core::selectPatch(static_cast<std::uint8_t>(index)));
+    return commandSink_->push(core::selectPatch(static_cast<std::uint8_t>(index)));
 }
 
 bool EngineBridge::setEffectType(int slot, quint32 type) {
@@ -96,7 +98,7 @@ bool EngineBridge::setEffectType(int slot, quint32 type) {
     const auto command = core::swapEffect(
         static_cast<std::uint8_t>(slot),
         reinterpret_cast<std::uintptr_t>(effect.get()));
-    if (!commandSink_.push(command)) {
+    if (!commandSink_->push(command)) {
         return false;
     }
     effect.release();
@@ -108,7 +110,7 @@ bool EngineBridge::setEffectType(int slot, quint32 type) {
 bool EngineBridge::setEffectBypass(int slot, bool bypassed) {
     if (!initialized_ || slot < 0 ||
         slot >= static_cast<int>(fx::kEffectSlotCount) ||
-        !commandSink_.push(core::setEffectBypass(static_cast<std::uint8_t>(slot), bypassed))) {
+        !commandSink_->push(core::setEffectBypass(static_cast<std::uint8_t>(slot), bypassed))) {
         return false;
     }
     (void)chainMirror_.setBypass(static_cast<std::size_t>(slot), bypassed);
@@ -119,7 +121,7 @@ bool EngineBridge::setEffectBypass(int slot, bool bypassed) {
 bool EngineBridge::setEffectMix(int slot, double mix) {
     if (!initialized_ || slot < 0 ||
         slot >= static_cast<int>(fx::kEffectSlotCount) || !std::isfinite(mix) ||
-        !commandSink_.push(
+        !commandSink_->push(
             core::setEffectMix(static_cast<std::uint8_t>(slot), static_cast<float>(mix)))) {
         return false;
     }
@@ -135,7 +137,7 @@ bool EngineBridge::setEffectParameter(int slot, quint32 id, double value) {
     }
     const auto parameterId = static_cast<core::ParameterId>(id);
     const float realValue = static_cast<float>(value);
-    if (!commandSink_.push(core::setEffectParam(static_cast<std::uint8_t>(slot),
+    if (!commandSink_->push(core::setEffectParam(static_cast<std::uint8_t>(slot),
                                                 parameterId, realValue)) ||
         !chainMirror_.setParameter(static_cast<std::size_t>(slot), parameterId, realValue)) {
         return false;
@@ -149,20 +151,20 @@ bool EngineBridge::setChordScale(int tonicSemitones, bool naturalMinor) {
 }
 
 bool EngineBridge::playChord(int row, double velocity) {
-    if (!initialized_ || !std::isfinite(velocity)) {
+    if ((!initialized_ && !commandSinkInjected_) || !std::isfinite(velocity)) {
         return false;
     }
     music::Chord chord;
     return chordModel_.chordAt(row, chord) &&
-           chordExpander_.noteOn(commandSink_, chord, static_cast<float>(velocity));
+           chordExpander_.noteOn(*commandSink_, chord, static_cast<float>(velocity));
 }
 
 bool EngineBridge::releaseChord(int row) {
-    if (!initialized_) {
+    if (!initialized_ && !commandSinkInjected_) {
         return false;
     }
     music::Chord chord;
-    return chordModel_.chordAt(row, chord) && chordExpander_.noteOff(commandSink_, chord);
+    return chordModel_.chordAt(row, chord) && chordExpander_.noteOff(*commandSink_, chord);
 }
 
 quint32 EngineBridge::parameterId(const QString& name) const {

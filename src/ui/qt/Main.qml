@@ -27,6 +27,52 @@ ApplicationWindow {
         value: window.compactLayout
     }
 
+    Item {
+        id: keyboardFocus
+        objectName: "keyboardFocus"
+        width: 0
+        height: 0
+        focus: true
+        property var heldChords: ({})
+
+        function releaseHeldChords() {
+            for (let row = 0; row < 7; ++row) {
+                if (heldChords[row]) {
+                    delete heldChords[row]
+                    engineBridge.releaseChord(row)
+                }
+            }
+        }
+
+        onActiveFocusChanged: {
+            if (!activeFocus)
+                releaseHeldChords()
+        }
+
+        Keys.priority: Keys.BeforeItem
+        Keys.onPressed: function(event) {
+            const row = event.key >= Qt.Key_1 && event.key <= Qt.Key_7
+                ? event.key - Qt.Key_1 : -1
+            if (row < 0 || window.activeFocusItem !== keyboardFocus)
+                return
+            event.accepted = true
+            if (event.isAutoRepeat || keyboardFocus.heldChords[row])
+                return
+            keyboardFocus.heldChords[row] = true
+            engineBridge.playChord(row)
+        }
+
+        Keys.onReleased: function(event) {
+            const row = event.key >= Qt.Key_1 && event.key <= Qt.Key_7
+                ? event.key - Qt.Key_1 : -1
+            if (row < 0 || !keyboardFocus.heldChords[row])
+                return
+            delete keyboardFocus.heldChords[row]
+            event.accepted = true
+            engineBridge.releaseChord(row)
+        }
+    }
+
     ScrollView {
         id: page
         objectName: "mainPage"
@@ -44,8 +90,12 @@ ApplicationWindow {
                 spacing: Theme.spacing
 
                 ColumnLayout {
+                    objectName: "brandHeader"
                     Layout.fillWidth: true
                     spacing: Theme.compactPadding / 2
+                    TapHandler {
+                        onTapped: keyboardFocus.forceActiveFocus()
+                    }
                     Text {
                         text: "DRUMASPRO"
                         color: Theme.ink
@@ -185,6 +235,7 @@ ApplicationWindow {
                                 required property string chordQuality
                                 required property string degreeNumeral
                                 required property var chordMidiNotes
+                                objectName: "chordButton_" + index
                                 rootName: chordRoot
                                 quality: chordQuality
                                 degree: degreeNumeral

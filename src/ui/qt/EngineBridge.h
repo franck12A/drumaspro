@@ -31,7 +31,8 @@ class EngineBridge final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
-    explicit EngineBridge(QObject* parent = nullptr);
+    explicit EngineBridge(QObject* parent = nullptr,
+                          bridge::CommandSink* commandSink = nullptr);
     ~EngineBridge() override;
 
     [[nodiscard]] ParameterModel* parameterModel() noexcept { return &parameterModel_; }
@@ -72,7 +73,9 @@ private:
 
     synth::SynthProcessor synth_;
     engine::AudioEngine engine_;
-    bridge::AudioEngineCommandSink commandSink_;
+    bridge::AudioEngineCommandSink audioCommandSink_;
+    bridge::CommandSink* commandSink_ = nullptr;
+    bool commandSinkInjected_ = false;
     bridge::ParameterMirror parameterMirror_;
     bridge::ChainMirror chainMirror_;
     bridge::ChordExpander chordExpander_;

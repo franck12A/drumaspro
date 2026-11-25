@@ -1,12 +1,15 @@
 #include <QDir>
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QFont>
 #include <QFontDatabase>
 #include <QFileInfo>
+#include <QKeyEvent>
 #include <QQuickStyle>
 #include <QImage>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickItem>
 #include <QQuickWindow>
 #include <QTest>
 #include <QThread>
@@ -39,6 +42,45 @@ public:
         }
     }
 };
+
+class RecordingCommandSink final : public drumas::bridge::CommandSink {
+public:
+    bool pushBatch(std::span<const drumas::core::Command> commands) noexcept override {
+        batches.emplace_back(commands.begin(), commands.end());
+        return true;
+    }
+
+    std::vector<std::vector<drumas::core::Command>> batches;
+};
+
+void compareCommandBatches(const std::vector<drumas::core::Command>& left,
+                           const std::vector<drumas::core::Command>& right) {
+    QCOMPARE(left.size(), right.size());
+    for (std::size_t index = 0; index < left.size(); ++index) {
+        QCOMPARE(left[index].type, right[index].type);
+        QCOMPARE(left[index].note, right[index].note);
+        QCOMPARE(left[index].param, right[index].param);
+        QCOMPARE(left[index].patch, right[index].patch);
+        QCOMPARE(left[index].value, right[index].value);
+        QCOMPARE(left[index].slot, right[index].slot);
+        QCOMPARE(left[index].object, right[index].object);
+    }
+}
+
+QQuickItem* findVisualItem(QQuickItem* root, const QString& objectName) {
+    if (root == nullptr) {
+        return nullptr;
+    }
+    if (root->objectName() == objectName) {
+        return root;
+    }
+    for (QQuickItem* child : root->childItems()) {
+        if (QQuickItem* match = findVisualItem(child, objectName)) {
+            return match;
+        }
+    }
+    return nullptr;
+}
 
 }  // namespace
 
@@ -132,6 +174,90 @@ private Q_SLOTS:
                         QStringLiteral("drumaspro-default-960x600.png")));
         QVERIFY(capture(QSize(1280, 720), true,
                         QStringLiteral("drumaspro-amber-1280x720.png")));
+    }
+
+    void chordButtonsAndKeyboardKeysSubmitMatchingHoldReleaseBatches() {
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->resize(1280, 720);
+        window->show();
+        window->requestActivate();
+        QTest::qWait(100);
+
+        auto* keyboardFocus =
+            findVisualItem(window->contentItem(), QStringLiteral("keyboardFocus"));
+        QVERIFY(keyboardFocus != nullptr);
+        for (int row = 0; row < 7; ++row) {
+            auto* button = findVisualItem(
+                window->contentItem(), QStringLiteral("chordButton_%1").arg(row));
+            QVERIFY(button != nullptr);
+            const QPoint buttonPosition =
+                button->mapToScene(QPointF(button->width() / 2, button->height() / 2)).toPoint();
+
+            sink.batches.clear();
+            QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
+            QCOMPARE(sink.batches.size(), std::size_t{1});
+            const auto buttonPressBatch = sink.batches.back();
+            QCOMPARE(buttonPressBatch.size(), std::size_t{3});
+            QCOMPARE(buttonPressBatch.front().type, drumas::core::CommandType::NoteOn);
+            QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
+            QCOMPARE(sink.batches.size(), std::size_t{2});
+            const auto buttonReleaseBatch = sink.batches.back();
+            QCOMPARE(buttonReleaseBatch.size(), std::size_t{3});
+            QCOMPARE(buttonReleaseBatch.front().type, drumas::core::CommandType::NoteOff);
+
+            keyboardFocus->forceActiveFocus();
+            QVERIFY(window->activeFocusItem() == keyboardFocus);
+            sink.batches.clear();
+            const auto key = static_cast<Qt::Key>(Qt::Key_1 + row);
+            QTest::keyPress(window, key);
+            QCOMPARE(sink.batches.size(), std::size_t{1});
+            const auto keyPressBatch = sink.batches.back();
+            if (row == 0) {
+                QKeyEvent autoRepeat(QEvent::KeyPress, key, Qt::NoModifier,
+                                     QStringLiteral("1"), true, 1);
+                QCoreApplication::sendEvent(window, &autoRepeat);
+                QCOMPARE(sink.batches.size(), std::size_t{1});
+            }
+            QTest::keyRelease(window, key);
+            QCOMPARE(sink.batches.size(), std::size_t{2});
+            const auto keyReleaseBatch = sink.batches.back();
+
+            compareCommandBatches(buttonPressBatch, keyPressBatch);
+            compareCommandBatches(buttonReleaseBatch, keyReleaseBatch);
+        }
+
+        auto* patchSelector =
+            findVisualItem(window->contentItem(), QStringLiteral("patchSelector"));
+        QVERIFY(patchSelector != nullptr);
+        patchSelector->forceActiveFocus();
+        sink.batches.clear();
+        QTest::keyPress(window, Qt::Key_2);
+        QTest::keyRelease(window, Qt::Key_2);
+        QVERIFY(sink.batches.empty());
+
+        auto* brandHeader =
+            findVisualItem(window->contentItem(), QStringLiteral("brandHeader"));
+        QVERIFY(brandHeader != nullptr);
+        const QPoint headerPosition =
+            brandHeader->mapToScene(QPointF(brandHeader->width() / 2,
+                                            brandHeader->height() / 2)).toPoint();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, headerPosition);
+        QVERIFY(window->activeFocusItem() == keyboardFocus);
+
+        sink.batches.clear();
+        QTest::keyPress(window, Qt::Key_2);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        patchSelector->forceActiveFocus();
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QVERIFY(sink.batches.back().front().type == drumas::core::CommandType::NoteOff);
     }
 
     void blockingUiThreadDoesNotStopAudioProcessing() {
