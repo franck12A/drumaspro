@@ -5,15 +5,25 @@ import QtQuick.Layouts
 ApplicationWindow {
     id: window
     objectName: "mainWindow"
-    width: 1280
-    height: 720
+    width: Theme.windowWidth
+    height: Theme.windowHeight
     minimumWidth: 960
     minimumHeight: 600
     visible: true
-    title: "Drumaspro"
+    title: "DRUMASPRO"
     color: Theme.background
     property bool amberTheme: false
-    property bool compactLayout: width < 1050 || height < 680
+    property bool compactLayout: width < 1100 || height < 680
+    property int currentKeyIndex: 0
+    property int currentModeIndex: 0
+    property int currentPatchIndex: 0
+    property string activeChordName: "READY"
+    property var activeChordRows: ({})
+
+    readonly property var keyNames: [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    ]
+    readonly property var patchNames: ["PAD", "PLUCK", "KEYS"]
 
     Binding {
         target: Theme
@@ -25,6 +35,32 @@ ApplicationWindow {
         target: Theme
         property: "compactMode"
         value: window.compactLayout
+    }
+
+    function playChord(row) {
+        const button = chordRepeater.itemAt(row)
+        if (button) {
+            button.chordActive = true
+            activeChordRows[row] = true
+            activeChordName = button.rootName + " " + button.quality
+        }
+        engineBridge.playChord(row)
+    }
+
+    function releaseChord(row) {
+        engineBridge.releaseChord(row)
+        const button = chordRepeater.itemAt(row)
+        if (button)
+            button.chordActive = false
+        delete activeChordRows[row]
+        activeChordName = "READY"
+        for (let activeRow = 0; activeRow < 7; ++activeRow) {
+            if (activeChordRows[activeRow]) {
+                const button = chordRepeater.itemAt(activeRow)
+                if (button)
+                    activeChordName = button.rootName + " " + button.quality
+            }
+        }
     }
 
     Item {
@@ -39,7 +75,7 @@ ApplicationWindow {
             for (let row = 0; row < 7; ++row) {
                 if (heldChords[row]) {
                     delete heldChords[row]
-                    engineBridge.releaseChord(row)
+                    window.releaseChord(row)
                 }
             }
         }
@@ -59,7 +95,7 @@ ApplicationWindow {
             if (event.isAutoRepeat || keyboardFocus.heldChords[row])
                 return
             keyboardFocus.heldChords[row] = true
-            engineBridge.playChord(row)
+            window.playChord(row)
         }
 
         Keys.onReleased: function(event) {
@@ -69,7 +105,22 @@ ApplicationWindow {
                 return
             delete keyboardFocus.heldChords[row]
             event.accepted = true
-            engineBridge.releaseChord(row)
+            window.releaseChord(row)
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.panel
+        border.color: Theme.edge
+        border.width: Theme.mainBorderWidth
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: Theme.mainBorderWidth + Theme.insetFrameGap
+            color: Theme.clear
+            border.color: Theme.trim
+            border.width: Theme.hairlineWidth
         }
     }
 
@@ -77,61 +128,126 @@ ApplicationWindow {
         id: page
         objectName: "mainPage"
         anchors.fill: parent
-        anchors.margins: Theme.padding
+        anchors.margins: Theme.frameInset
         clip: true
         contentWidth: availableWidth
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
         ColumnLayout {
             width: page.availableWidth
             spacing: Theme.spacing
 
             RowLayout {
+                id: header
                 Layout.fillWidth: true
+                Layout.preferredHeight: Theme.masterHeaderHeight
                 spacing: Theme.spacing
 
                 ColumnLayout {
                     objectName: "brandHeader"
                     Layout.fillWidth: true
-                    spacing: Theme.compactPadding / 2
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: Theme.inlineGap
+
                     TapHandler {
                         onTapped: keyboardFocus.forceActiveFocus()
                     }
+
                     Text {
                         text: "DRUMASPRO"
                         color: Theme.ink
-                        font.family: Theme.labelFont
-                        font.pixelSize: Theme.titleSize
+                        font.family: Theme.brandFont
+                        font.pixelSize: Theme.brandSize
                         font.bold: true
-                        font.letterSpacing: 2
+                        font.letterSpacing: Theme.brandTracking
                     }
+
                     Text {
-                        text: "VIRTUAL INSTRUMENT  /  PERFORMANCE SYSTEM"
+                        text: "POLYPHONIC PERFORMANCE INSTRUMENT"
                         color: Theme.mutedInk
                         font.family: Theme.labelFont
-                        font.pixelSize: Theme.labelSize
-                        font.letterSpacing: 1
+                        font.pixelSize: Theme.smallTextSize
+                        font.letterSpacing: Theme.serigraphyTracking
+                        elide: Text.ElideRight
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Theme.inlineGap
+                    Text {
+                        text: "TONIC"
+                        color: Theme.ink
+                        font.family: Theme.labelFont
+                        font.pixelSize: Theme.smallTextSize
+                        font.bold: true
+                    }
+                    Selector {
+                        id: keySelector
+                        objectName: "keySelector"
+                        Layout.preferredWidth: Theme.selectorWidth
+                        model: window.keyNames
+                        currentIndex: window.currentKeyIndex
+                        onActivated: {
+                            window.currentKeyIndex = currentIndex
+                            engineBridge.setChordScale(
+                                currentIndex, window.currentModeIndex === 1)
+                        }
                     }
                 }
 
                 LcdDisplay {
-                    label: "ENGINE"
-                    value: engineBridge.running ? "ONLINE" : "OFFLINE"
-                    unit: engineBridge.activeVoices + " VOICES"
+                    id: chordDisplay
+                    objectName: "activeChordDisplay"
+                    wide: true
+                    label: window.activeChordName
+                    value: window.keyNames[window.currentKeyIndex] +
+                           (window.currentModeIndex === 0 ? " MAJOR" : " NAT MIN")
+                    unit: window.patchNames[window.currentPatchIndex]
                 }
 
                 LcdDisplay {
-                    label: "XRUNS"
-                    value: engineBridge.xruns.toString()
-                    unit: "COUNT"
+                    objectName: "engineStatusDisplay"
+                    label: "ENGINE"
+                    value: engineBridge.running ? "ONLINE" : "OFFLINE"
+                    unit: engineBridge.activeVoices + "V"
                 }
 
                 LevelMeter {
+                    id: outputMeter
+                    objectName: "outputMeter"
                     label: "OUTPUT"
                     value: engineBridge.outputPeak
+                    bars: 12
+                }
+
+                ToggleButton {
+                    id: amberThemeToggle
+                    objectName: "amberThemeToggle"
+                    Layout.preferredWidth: Theme.themeToggleWidth
+                    label: "AMBER"
+                    checked: window.amberTheme
+                    onToggled: window.amberTheme = checked
+                }
+
+                Knob {
+                    id: masterKnob
+                    objectName: "masterKnob"
+                    large: true
+                    label: "MASTER"
+                    readonly property int controlId:
+                        engineBridge.parameterId("master.gain")
+                    unit: engineBridge.parameterModel.unitForId(controlId)
+                    minimum: engineBridge.parameterModel.minimumForId(controlId)
+                    maximum: engineBridge.parameterModel.maximumForId(controlId)
+                    value: engineBridge.parameterModel.valueForId(controlId)
+                    onValueEdited: engineBridge.setParameter(controlId, nextValue)
                 }
             }
 
             ThemeAmber {
+                id: synthPanel
+                objectName: "synthPanel"
                 Layout.fillWidth: true
                 implicitHeight: synthContent.implicitHeight + 2 * Theme.padding
 
@@ -143,91 +259,155 @@ ApplicationWindow {
                     anchors.margins: Theme.padding
                     spacing: Theme.spacing
 
-                    SectionTitle { text: "SYNTHESIZER" }
+                    SectionTitle {
+                        text: "SYNTHESIZER"
+                        inverted: true
+                    }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        Selector {
-                            id: patchSelector
-                            objectName: "patchSelector"
-                            Layout.preferredWidth: Theme.effectSlotWidth
-                            model: engineBridge.patchModel
-                            textRole: "name"
-                            onActivated: engineBridge.selectPatch(currentIndex)
+                        spacing: Theme.spacing
+
+                        RowLayout {
+                            id: rotaryControls
+                            Layout.preferredWidth: Theme.controlSideWidth
+                            Layout.alignment: Qt.AlignVCenter
+                            spacing: Theme.inlineGap
+
+                            RotarySelector {
+                                id: patchSelector
+                                objectName: "patchSelector"
+                                label: "PATCH"
+                                options: window.patchNames
+                                currentIndex: window.currentPatchIndex
+                                onActivated: {
+                                    window.currentPatchIndex = index
+                                    engineBridge.selectPatch(index)
+                                }
+                            }
+
+                            RotarySelector {
+                                id: modeSelector
+                                objectName: "modeSelector"
+                                label: "SCALE"
+                                options: ["MAJOR", "NAT MIN"]
+                                currentIndex: window.currentModeIndex
+                                onActivated: {
+                                    window.currentModeIndex = index
+                                    engineBridge.setChordScale(
+                                        window.currentKeyIndex, index === 1)
+                                }
+                            }
                         }
 
-                        Selector {
-                            id: keySelector
-                            Layout.preferredWidth: Theme.effectSlotWidth
-                            model: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-                            onActivated: engineBridge.setChordScale(currentIndex,
-                                                                   modeSelector.currentIndex === 1)
+                        Rectangle {
+                            Layout.fillHeight: true
+                            Layout.preferredWidth: Theme.moduleBorderWidth
+                            color: Theme.edge
                         }
 
-                        Selector {
-                            id: modeSelector
-                            Layout.preferredWidth: Theme.effectSlotWidth
-                            model: ["MAJOR", "NATURAL MINOR"]
-                            onActivated: engineBridge.setChordScale(keySelector.currentIndex,
-                                                                   currentIndex === 1)
-                        }
+                        RowLayout {
+                            id: parameterGroups
+                            Layout.fillWidth: true
+                            spacing: Theme.inlineGap
 
-                        ToggleButton {
-                            label: "AMBER"
-                            checked: window.amberTheme
-                            onToggled: window.amberTheme = checked
-                        }
+                            Repeater {
+                                model: [
+                                    {
+                                        label: "OSC",
+                                        controls: [
+                                            { label: "OSC 1", parameter: "osc1.level" },
+                                            { label: "OSC 2", parameter: "osc2.level" }
+                                        ]
+                                    },
+                                    {
+                                        label: "FILTER",
+                                        controls: [
+                                            { label: "CUTOFF", parameter: "filter.cutoff" },
+                                            { label: "RESONANCE", parameter: "filter.resonance" }
+                                        ]
+                                    },
+                                    {
+                                        label: "ENV",
+                                        controls: [
+                                            { label: "ATTACK", parameter: "amp.attack" },
+                                            { label: "RELEASE", parameter: "amp.release" }
+                                        ]
+                                    },
+                                    {
+                                        label: "LFO",
+                                        controls: [
+                                            { label: "RATE", parameter: "lfo.rate" }
+                                        ]
+                                    }
+                                ]
 
-                        Item { Layout.fillWidth: true }
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    color: Theme.panelInset
+                                    radius: Theme.corner
+                                    border.color: Theme.edge
+                                    border.width: Theme.moduleBorderWidth
+                                    implicitWidth: parameterRow.implicitWidth +
+                                                   2 * Theme.parameterGroupPadding
+                                    implicitHeight: groupContent.implicitHeight +
+                                                    2 * Theme.parameterGroupPadding
 
-                        Text {
-                            text: "HOLD A CHORD TO PLAY"
-                            color: Theme.mutedInk
-                            font.family: Theme.labelFont
-                            font.pixelSize: Theme.labelSize
-                            font.letterSpacing: 1
-                        }
-                    }
+                                    ColumnLayout {
+                                        id: groupContent
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.parameterGroupPadding
+                                        spacing: Theme.inlineGap
 
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: Math.max(1, Math.min(8,
-                            Math.floor((synthContent.width + Theme.spacing) /
-                                      (Theme.knobWidth + Theme.spacing))))
-                        rowSpacing: Theme.compactPadding
-                        columnSpacing: Theme.spacing
+                                        SectionTitle {
+                                            Layout.fillWidth: true
+                                            text: modelData.label
+                                            bracketed: true
+                                        }
 
-                        Repeater {
-                            model: [
-                                { label: "MASTER", parameter: "master.gain" },
-                                { label: "CUTOFF", parameter: "filter.cutoff" },
-                                { label: "RESONANCE", parameter: "filter.resonance" },
-                                { label: "ATTACK", parameter: "amp.attack" },
-                                { label: "RELEASE", parameter: "amp.release" },
-                                { label: "LFO RATE", parameter: "lfo.rate" },
-                                { label: "OSC 1", parameter: "osc1.level" },
-                                { label: "OSC 2", parameter: "osc2.level" }
-                            ]
-                            delegate: Knob {
-                                required property var modelData
-                                readonly property int controlId:
-                                    engineBridge.parameterId(modelData.parameter)
-                                label: modelData.label
-                                unit: engineBridge.parameterModel.unitForId(controlId)
-                                minimum: engineBridge.parameterModel.minimumForId(controlId)
-                                maximum: engineBridge.parameterModel.maximumForId(controlId)
-                                value: engineBridge.parameterModel.valueForId(controlId)
-                                onValueEdited: engineBridge.setParameter(controlId, nextValue)
+                                        RowLayout {
+                                            id: parameterRow
+                                            spacing: Theme.inlineGap
+
+                                            Repeater {
+                                                model: modelData.controls
+                                                delegate: Knob {
+                                                    required property var modelData
+                                                    readonly property int controlId:
+                                                        engineBridge.parameterId(
+                                                            modelData.parameter)
+                                                    label: modelData.label
+                                                    unit: engineBridge.parameterModel
+                                                        .unitForId(controlId)
+                                                    minimum: engineBridge.parameterModel
+                                                        .minimumForId(controlId)
+                                                    maximum: engineBridge.parameterModel
+                                                        .maximumForId(controlId)
+                                                    value: engineBridge.parameterModel
+                                                        .valueForId(controlId)
+                                                    onValueEdited:
+                                                        engineBridge.setParameter(
+                                                            controlId, nextValue)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
 
-                    SectionTitle { text: "DIATONIC CHORDS" }
+                    SectionTitle {
+                        text: "DIATONIC CHORDS"
+                        inverted: true
+                    }
 
-                    Flow {
+                    RowLayout {
                         Layout.fillWidth: true
-                        spacing: Theme.compactPadding
+                        spacing: Theme.inlineGap
+
                         Repeater {
+                            id: chordRepeater
                             model: engineBridge.chordModel
                             delegate: ChordButton {
                                 required property int index
@@ -236,42 +416,137 @@ ApplicationWindow {
                                 required property string degreeNumeral
                                 required property var chordMidiNotes
                                 objectName: "chordButton_" + index
+                                Layout.fillWidth: true
                                 rootName: chordRoot
                                 quality: chordQuality
                                 degree: degreeNumeral
                                 midiNotes: chordMidiNotes
-                                onPressed: engineBridge.playChord(index)
-                                onReleased: engineBridge.releaseChord(index)
+                                onPressed: window.playChord(index)
+                                onReleased: window.releaseChord(index)
+                                onCanceled: window.releaseChord(index)
                             }
                         }
                     }
                 }
             }
 
-            SectionTitle { text: "EFFECTS CHAIN" }
+            SectionTitle {
+                text: "EFFECTS CHAIN"
+                inverted: true
+            }
 
             GridLayout {
+                id: effectGrid
                 Layout.fillWidth: true
-                columns: Math.max(1, Math.min(6,
-                    Math.floor((page.availableWidth + Theme.compactPadding) /
-                              (Theme.effectSlotWidth + Theme.compactPadding))))
-                columnSpacing: Theme.compactPadding
-                rowSpacing: Theme.compactPadding
+                columns: 6
+                columnSpacing: Theme.inlineGap
+                rowSpacing: Theme.inlineGap
 
                 Repeater {
                     model: engineBridge.chainModel
                     delegate: EffectSlot {
-                        required property int slot
+                        required property int index
                         required property string effectName
                         required property bool isBypassed
                         required property real effectMix
+                        Layout.fillWidth: true
                         typeName: effectName
+                        slot: index
                         bypassed: isBypassed
                         mix: effectMix
-                        onTypeSelected: engineBridge.setEffectType(slot,
-                                                                   engineBridge.effectTypeId(index))
+                        onTypeSelected: engineBridge.setEffectType(
+                            slot, engineBridge.effectTypeId(index))
                         onRequestBypass: engineBridge.setEffectBypass(slot, bypassed)
                         onRequestMix: engineBridge.setEffectMix(slot, mix)
+                    }
+                }
+            }
+
+            Rectangle {
+                id: futureControls
+                objectName: "futureControlsReserved"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Theme.futureDockHeight
+                color: Theme.panelInset
+                radius: Theme.corner
+                border.color: Theme.edge
+                border.width: Theme.moduleBorderWidth
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.inlineGap
+                    spacing: Theme.spacing
+
+                    Rectangle {
+                        Layout.preferredWidth: Theme.futureDockWidth
+                        Layout.fillHeight: true
+                        color: Theme.clear
+                        border.color: Theme.trim
+                        border.width: Theme.hairlineWidth
+                        radius: Theme.corner
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "JOYSTICK BAY  /  RESERVED"
+                            color: Theme.mutedInk
+                            font.family: Theme.labelFont
+                            font.pixelSize: Theme.smallTextSize
+                            font.bold: true
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: Theme.inlineGap
+
+                        Text {
+                            text: "16-STEP SEQUENCER  /  RESERVED"
+                            color: Theme.mutedInk
+                            font.family: Theme.labelFont
+                            font.pixelSize: Theme.smallTextSize
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            spacing: Theme.inlineGap
+
+                            Repeater {
+                                model: 16
+                                delegate: Rectangle {
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: Theme.stepCellWidth
+                                    Layout.preferredHeight: Theme.stepCellHeight
+                                    Layout.fillHeight: true
+                                    color: Theme.panelRaised
+                                    radius: Theme.corner / 2
+                                    border.color: Theme.edge
+                                    border.width: Theme.hairlineWidth
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: Theme.inlineGap / 2
+                                        Text {
+                                            text: (index + 1).toString()
+                                            color: Theme.ink
+                                            font.family: Theme.displayFont
+                                            font.pixelSize: Theme.tinySize
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                        }
+                                        Rectangle {
+                                            width: Theme.chordLedDiameter / 2
+                                            height: width
+                                            radius: width / 2
+                                            color: Theme.ledOff
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -280,9 +555,9 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 visible: engineBridge.error.length > 0
                 text: engineBridge.error
-                color: Theme.danger
+                color: Theme.ledOn
                 font.family: Theme.displayFont
-                font.pixelSize: Theme.labelSize
+                font.pixelSize: Theme.smallTextSize
                 elide: Text.ElideRight
             }
         }
