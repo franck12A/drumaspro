@@ -54,7 +54,9 @@ efecto.
 El delay reserva `ChainDescription::tempoBpm` para la sincronía por BPM futura;
 en esta etapa el tiempo se expresa en milisegundos y no hay división musical.
 
-## Consola
+## Controles
+
+En la consola:
 
 | Tecla | Acción |
 |---|---|
@@ -66,6 +68,10 @@ en esta etapa el tiempo se expresa en milisegundos y no hay división musical.
 | `Tab` | alternar foco sintetizador/efectos |
 | `↑`/`↓` o `+`/`-` | ajustar el parámetro seleccionado |
 | `0` | volver a los parámetros del sintetizador |
+
+En la UI Qt/QML, cada slot muestra su tipo, bypass y mezcla; el selector de tipo
+prepara el efecto en el hilo de control antes de encolarlo. Los controles de
+acorde envían juntas todas las notas y las liberan al soltar el botón.
 
 La línea `Chain:` imprime los seis slots (`Rvb`, `Dly`, `Cho`, `Drv`, `Flt`),
 un `*` si el slot está activo y `-` si está bypass, y la latencia total de

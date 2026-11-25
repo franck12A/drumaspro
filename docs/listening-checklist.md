@@ -6,7 +6,7 @@ por confirmar en una sesión de escucha real.
 
 ## Preparación
 
-- Ejecutar `drumaspro.exe --buffer=256 --rate=48000` con el volumen del sistema
+- Ejecutar `drumaspro_console.exe --buffer=256 --rate=48000` con el volumen del sistema
   a un nivel moderado.
 - Tocar acordes de cuatro notas mantenidos (por ejemplo `A` + `D` + `G` + `J`)
   y dejar que la cola de release termine.

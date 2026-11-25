@@ -4,15 +4,13 @@ Motor de un instrumento musical virtual de escritorio para Windows 10/11
 (acordes, sintetizadores, efectos en tiempo real, atmósferas y ritmos) con
 estética de hardware retrofuturista. **No es un DAW.**
 
-Este repositorio contiene la **Etapa 5A: cadena de efectos**. Sobre el motor de
-síntesis sustractiva de la Etapa 4 hay seis slots en serie (reverb, delay,
-chorus, drive y dos filtros), bypass y mezcla por slot, cambio de tipo en
-caliente y un limitador maestro con look-ahead. Sigue siendo una aplicación de
-consola, con la arquitectura definitiva desde el primer día: módulos CMake
-separados, hilo de audio libre de asignaciones, comandos por cola lock-free,
-parámetros con registro propio y tests automatizados.
+Este repositorio contiene el motor de síntesis sustractiva, la cadena de seis
+efectos de la Etapa 5A y una interfaz de escritorio Qt/QML opcional. La interfaz
+ofrece controles de sintetizador, acordes diatónicos, patches y cadena de
+efectos; la aplicación de consola sigue disponible para diagnóstico y
+automatización. Ambos usan el mismo motor y cola de comandos.
 
-Lo que **no** hay todavía (fuera de alcance): UI (Qt/QML), presets, atmósferas,
+Lo que **no** hay todavía (fuera de alcance): presets, atmósferas,
 ritmos, arpegios, joystick, instalador y los efectos de la Etapa 5B (flanger,
 phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
 
@@ -27,6 +25,9 @@ phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
     verifica.
 - No hace falta instalar dependencias: `third_party/` está vendorizado y Catch2
   se descarga al configurar (requiere red la primera vez).
+- La UI es opcional y requiere Qt 6.8.3 para MSVC x64. En desarrollo local el
+  preset busca el SDK bajo `.tools/Qt/6.8.3/msvc2022_64`; sin Qt se compilan
+  igualmente el motor, la consola y las pruebas.
 
 ## Compilar
 
@@ -34,6 +35,20 @@ phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
 cmake --preset vs2026            # o: cmake --preset vs2022
 cmake --build --preset vs2026-debug
 cmake --build --preset vs2026-release
+```
+
+Para incluir la UI:
+
+```powershell
+cmake --preset vs2026 -DDRUMAS_BUILD_UI=ON
+cmake --build --preset vs2026-release --target drumaspro_qt
+```
+
+Para configurar, compilar en Release, desplegar las DLL de Qt junto al
+ejecutable y abrir la ventana:
+
+```powershell
+.\tools\run-ui.ps1
 ```
 
 Los presets de VS generan un árbol multi-configuración en
@@ -46,9 +61,13 @@ Si `cmake` no está en el `PATH`, usa el que viene con Visual Studio:
 ## Ejecutar
 
 ```powershell
-.\build\vs2026\src\app\Debug\drumaspro.exe
-.\build\vs2026\src\app\Debug\drumaspro.exe --buffer=128 --rate=48000
+.\build\vs2026\src\ui\qt\Debug\drumaspro.exe
+.\build\vs2026\src\app\Debug\drumaspro_console.exe
+.\build\vs2026\src\app\Debug\drumaspro_console.exe --buffer=128 --rate=48000
 ```
+
+La UI permite elegir patch, tonalidad mayor/menor, tocar acordes manteniendo el
+botón pulsado y controlar los parámetros y seis slots de efectos.
 
 - `A S D F G H J` tocan C4 D4 E4 F4 G4 A4 B4 (notas de 400 ms por pulsación: una
   consola no envía eventos de "tecla soltada").
@@ -75,7 +94,8 @@ ctest --preset vs2026-debug
 ctest --preset vs2026-release
 ```
 
-75 casos: cola SPSC (FIFO, lleno/vacío, dos hilos), suavizado de parámetros,
+La suite cubre la cola SPSC (FIFO, lleno/vacío, dos hilos y batches todo-o-nada),
+suavizado de parámetros,
 registro de parámetros (rangos, curvas log, valores fuera de rango), afinación y
 alias del oscilador con FFT (y comparación con una sierra ingenua), respuesta y
 estabilidad del filtro, fases del ADSR, pool de voces con *stealing*, patches de
@@ -86,7 +106,11 @@ feedback máximo), chorus, drive (compensación y alias con/sin 2×), filtro
 multimodo, limitador (techo estricto y latencia), cola silenciosa sin
 denormales, el grafo de audio (**cero asignaciones con 32 voces, 6 insertos y
 limitador**, incluido un swap) y un benchmark de CPU que imprime el porcentaje
-del presupuesto de bloque.
+del presupuesto de bloque; además, teoría musical (calidades, inversiones,
+límites MIDI, escalas y acordes diatónicos), FFT de fundamentales, continuidad
+de cambio de acorde, espejo de parámetros/cadena, aislamiento de Qt y pruebas
+de modelos, carga QML y captura offscreen. La CI deja la UI Qt desactivada; para
+ejecutar su prueba local hay que configurar con `DRUMAS_BUILD_UI=ON`.
 
 Mediciones reales de esta entrega:
 
@@ -107,12 +131,15 @@ Mediciones reales de esta entrega:
 ```
 src/core      tipos, comandos, cola SPSC, suavizado, registro de parámetros,
               guard de denormales
+src/music     pitch classes, acordes, inversiones, escalas y grados diatónicos
 src/fx        IEffect, fábrica, descripción de cadena, seis slots, reverb,
               delay, chorus, drive, filtro y limitador look-ahead
 src/synth     oscilador minBLEP, LFO, voz sustractiva, filtro, patches,
               pool de voces, SynthProcessor
 src/engine    AudioGraph (camino en tiempo real) y AudioEngine (miniaudio/WASAPI)
-src/app       aplicación de consola
+src/bridge    expansión atómica de acordes y espejos de control sin Qt
+src/app       aplicación de consola de diagnóstico
+src/ui/qt     puente QObject, modelos Qt y UI QML opcional
 tests/        Catch2 + CTest, con contador de asignaciones
 third_party/  miniaudio 0.11.26 y DSPark 1.7.0, vendorizados (ver README propio)
 docs/         estilo, reglas de tiempo real, parámetros, sintetizador, efectos y ADRs
@@ -124,8 +151,11 @@ Grafo de dependencias (sin ciclos):
 core  (INTERFACE)
  ├── fx     (INTERFACE)
  ├── synth  (INTERFACE) -> fx
+ ├── music  (INTERFACE) -> funciones puras
  ├── engine (STATIC)    -> miniaudio
- └── app    (EXECUTABLE) -> synth + engine
+ ├── bridge (INTERFACE) -> engine + music
+ ├── app    (EXECUTABLE) -> synth + engine
+ └── ui/qt  (EXECUTABLE, opcional) -> bridge + Qt
 ```
 
 `core`, `synth`, `fx` y `engine` no incluyen nada de Qt ni de UI; `engine` no
@@ -142,6 +172,12 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
   sintetizador.
 - [`docs/listening-checklist.md`](docs/listening-checklist.md) — qué escuchar en
   cada patch (pendiente de verificación humana).
+- [`docs/ui.md`](docs/ui.md) — interfaz Qt/QML, compilación y modelo de
+  comunicación con el motor.
+- [`docs/ui-checklist.md`](docs/ui-checklist.md) — comprobación visual y de
+  escucha en dispositivo real (pendiente de verificación humana).
+- [`docs/screenshots/drumaspro-ui.png`](docs/screenshots/drumaspro-ui.png) —
+  captura generada por el test Qt Quick offscreen.
 - [`docs/rt-safety.md`](docs/rt-safety.md) — reglas del hilo de audio y cómo se
   verifican.
 - [`docs/style.md`](docs/style.md) — guía de estilo y convenciones.
@@ -167,10 +203,13 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
 - La latencia mostrada por el motor es la de insertos + limitador; la latencia
   del driver es una **cota inferior** adicional y el periodo real de callback se
   imprime aparte.
-- El prototipo no tiene UI gráfica: teclas en consola.
+- el audio requiere escucha humana para validar gusto/timbre; ver la checklist.
 - La calidad de timbre, el carácter de la reverb, el pumping del limitador, la
   ausencia de clics y el "se siente bien" de cada efecto requieren escucha
   humana; ver la checklist de la entrega de la etapa.
+- La captura QML offscreen se genera en tests y muestra los modelos; no sustituye
+  la comprobación humana en una ventana nativa ni la escucha con un dispositivo.
 - El workflow de CI de GitHub Actions no se ha podido consultar desde el
-  entorno de desarrollo; la verificación local (Debug y Release, `/W4 /WX`,
-  75/75 tests) sí está hecha.
+  entorno de desarrollo; la verificación local Release (`/W4 /WX`, 96/96
+  tests con Qt activada) sí está hecha. El job de CI configura
+  `DRUMAS_BUILD_UI=OFF` para que Qt siga siendo opcional.

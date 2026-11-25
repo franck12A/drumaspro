@@ -68,6 +68,14 @@ Después se resetea el procesador y se libera el dispositivo. No se debe llamar 
 - **Audio → audio**: los procesadores no son thread-safe a propósito (sin
   barreras en el camino caliente). Los setters se llaman solo desde el hilo de
   audio, o desde el hilo de control con el stream parado.
+- **UI → motor**: `EngineBridge` crea comandos y los publica por la misma cola
+  SPSC; el hilo de UI nunca accede directamente al callback ni espera por él.
+  Los acordes convierten sus notas en un batch todo-o-nada, de modo que una
+  cola sin capacidad descarta el acorde entero y aumenta el contador de acordes
+  descartados. El refresco de estado corre a 40 Hz y lee contadores atómicos.
+- **Motor sin Qt**: `core`, `fx`, `synth`, `engine` y `music` no incluyen Qt ni
+  lo requieren para compilar. `engine_has_no_qt` recorre las fuentes y
+  comprueba las interfaces de enlace en cada configuración de CTest.
 
 ## Suavizado de parámetros
 
