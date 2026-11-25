@@ -1,8 +1,10 @@
 #include <QGuiApplication>
+#include <QSize>
 #include <QQuickStyle>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QDebug>
+#include <QQuickWindow>
 
 #include "EngineBridge.h"
 
@@ -19,5 +21,13 @@ int main(int argc, char* argv[]) {
     if (qml.rootObjects().isEmpty()) {
         return 1;
     }
+    auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+    if (window == nullptr) {
+        qCritical() << "Drumaspro Main root is not a QQuickWindow";
+        return 1;
+    }
+    window->setMinimumSize(QSize(960, 600));
+    window->resize(QSize(1280, 720));
+    qInfo() << "Drumaspro window size:" << window->width() << "x" << window->height();
     return application.exec();
 }

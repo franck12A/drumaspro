@@ -33,6 +33,8 @@ dispositivo de audio. No marcar ningún punto como verificado sin ejecutarlo.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana
-nativa. La captura automatizada
-[`screenshots/drumaspro-ui.png`](./screenshots/drumaspro-ui.png) no sustituye
-esta comprobación.
+nativa. Las capturas automatizadas
+[`drumaspro-default-1280x720.png`](./screenshots/drumaspro-default-1280x720.png),
+[`drumaspro-default-960x600.png`](./screenshots/drumaspro-default-960x600.png) y
+[`drumaspro-amber-1280x720.png`](./screenshots/drumaspro-amber-1280x720.png) no
+sustituyen esta comprobación.

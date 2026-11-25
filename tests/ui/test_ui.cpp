@@ -86,7 +86,7 @@ private Q_SLOTS:
                  QStringLiteral("Keys"));
     }
 
-    void qmlLoadsAndAttemptsAnOffscreenCapture() {
+    void qmlFitsRequiredWindowSizesAndCapturesBothThemes() {
         const QDir fontDirectory(qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
         for (const QString& fileName :
              {QStringLiteral("segoeui.ttf"), QStringLiteral("lucon.ttf")}) {
@@ -104,19 +104,34 @@ private Q_SLOTS:
         auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
         QVERIFY(window != nullptr);
         window->show();
-        QTest::qWait(500);
+        QVERIFY(QDir().mkpath(QStringLiteral(DRUMAS_SCREENSHOT_DIR)));
 
-        const QString path =
-            QStringLiteral(DRUMAS_SCREENSHOT_DIR) + QStringLiteral("/drumaspro-ui.png");
-        QDir().remove(path);
-        const QImage screenshot = window->grabWindow();
-        if (screenshot.isNull()) {
+        const auto capture = [window](const QSize& size, bool amber,
+                                      const QString& fileName) {
+            window->setProperty("amberTheme", amber);
+            window->resize(size);
+            QTest::qWait(100);
+            if (window->size() != size) {
+                return false;
+            }
+            const QImage screenshot = window->grabWindow();
+            if (screenshot.isNull()) {
+                return false;
+            }
+            const QString path =
+                QStringLiteral(DRUMAS_SCREENSHOT_DIR) + QLatin1Char('/') + fileName;
+            return screenshot.size() == size && screenshot.save(path);
+        };
+
+        const bool defaultLarge =
+            capture(QSize(1280, 720), false, QStringLiteral("drumaspro-default-1280x720.png"));
+        if (!defaultLarge) {
             QSKIP("Offscreen grabWindow is unavailable; capture requires human/UI verification");
         }
-
-        QVERIFY(QDir().mkpath(QStringLiteral(DRUMAS_SCREENSHOT_DIR)));
-        QVERIFY2(screenshot.save(path), qPrintable(path));
-        QCOMPARE(screenshot.size(), QSize(1180, 780));
+        QVERIFY(capture(QSize(960, 600), false,
+                        QStringLiteral("drumaspro-default-960x600.png")));
+        QVERIFY(capture(QSize(1280, 720), true,
+                        QStringLiteral("drumaspro-amber-1280x720.png")));
     }
 
     void blockingUiThreadDoesNotStopAudioProcessing() {

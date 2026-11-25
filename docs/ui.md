@@ -53,18 +53,20 @@ redistribuidas.
   notas, se descarta y se cuenta; la UI no bloquea el hilo de audio.
 
 El tema centraliza colores, tipografía, dimensiones y espaciado en
-`Theme.qml`; `ThemeAmber.qml` aplica el tema de acento. Los controles QML usan
-el estilo `Basic` de Qt Quick Controls para que sus fondos y estados sean
+`Theme.qml`; el control `AMBER` alterna entre la paleta predeterminada y la
+ámbar. El layout se compacta para el mínimo de 960×600 y mantiene scroll como
+respaldo para restricciones de espacio del sistema. Los controles QML usan el
+estilo `Basic` de Qt Quick Controls para que sus fondos y estados sean
 personalizables.
 
 ## Pruebas y captura
 
 Con `DRUMAS_BUILD_UI=ON`, `ctest --preset vs2026-release` incluye `qt_ui_tests`.
-Ese test carga la pantalla en la plataforma `offscreen`, comprueba los modelos,
-verifica que bloquear el hilo de pruebas no detiene un `AudioGraph` procesando
-y guarda `docs/screenshots/drumaspro-ui.png`. No abre un dispositivo de audio.
-La imagen es evidencia de render QML y no certifica el aspecto en una ventana
-nativa ni la calidad sonora. La revisión manual sigue pendiente; véase
+Ese test carga la pantalla en la plataforma `offscreen`, comprueba los modelos
+y guarda capturas a 1280×720 y 960×600 para inspección. No abre un dispositivo
+de audio. Las imágenes son
+evidencia de render QML y no certifican el aspecto en una ventana nativa ni la
+calidad sonora. La revisión manual de audio/dispositivo sigue pendiente; véase
 [`ui-checklist.md`](./ui-checklist.md).
 
 La aplicación de consola y la prueba de aislamiento se compilan sin Qt. La CI
