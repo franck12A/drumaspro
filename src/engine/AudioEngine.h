@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -83,6 +84,11 @@ public:
     /// Any thread. Producer side of the lock-free command queue. RT-SAFE.
     [[nodiscard]] bool pushCommand(const core::Command& command) noexcept {
         return graph_.pushCommand(command);
+    }
+
+    /// Producer side. Enqueues every command or none. RT-SAFE.
+    [[nodiscard]] bool pushCommands(std::span<const core::Command> commands) noexcept {
+        return graph_.pushCommands(commands);
     }
 
     /// Any thread.

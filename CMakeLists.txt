@@ -81,6 +81,10 @@ if (DRUMAS_BUILD_APP)
     add_subdirectory(src/app)
 endif ()
 
+if (DRUMAS_BUILD_UI AND Qt6_FOUND)
+    add_subdirectory(src/ui/qt)
+endif ()
+
 if (DRUMAS_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)

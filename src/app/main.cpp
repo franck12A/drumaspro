@@ -453,7 +453,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    std::printf("drumaspro -- engine prototype\n\n");
+    std::printf("drumaspro_console -- engine diagnostics\n\n");
 
     synth::SynthProcessor synthProcessor;
     engine::AudioEngine audio;
