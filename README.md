@@ -176,8 +176,14 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
   comunicación con el motor.
 - [`docs/ui-checklist.md`](docs/ui-checklist.md) — comprobación visual y de
   escucha en dispositivo real (pendiente de verificación humana).
-- [`docs/screenshots/drumaspro-ui.png`](docs/screenshots/drumaspro-ui.png) —
-  captura generada por el test Qt Quick offscreen.
+- [`docs/screenshots/drumaspro-default-1280x720.png`](docs/screenshots/drumaspro-default-1280x720.png) —
+  captura del tema gris-beige.
+- [`docs/screenshots/drumaspro-default-960x600.png`](docs/screenshots/drumaspro-default-960x600.png) —
+  captura compacta del tema gris-beige.
+- [`docs/screenshots/drumaspro-amber-1280x720.png`](docs/screenshots/drumaspro-amber-1280x720.png) —
+  captura del tema ámbar.
+- [`docs/screenshots/drumaspro-amber-960x600.png`](docs/screenshots/drumaspro-amber-960x600.png) —
+  captura compacta del tema ámbar.
 - [`docs/rt-safety.md`](docs/rt-safety.md) — reglas del hilo de audio y cómo se
   verifican.
 - [`docs/style.md`](docs/style.md) — guía de estilo y convenciones.

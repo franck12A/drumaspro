@@ -1,8 +1,9 @@
 # Checklist de verificación humana de la UI
 
-**Estado: pendiente.** La captura offscreen se generó y los tests automatizados
-pasaron, pero aún se necesita una revisión humana en una sesión Windows con
-dispositivo de audio. No marcar ningún punto como verificado sin ejecutarlo.
+**Estado: pendiente.** Las capturas offscreen se generan en cuatro tamaños/temas
+y los tests automatizados cubren la carga QML, pero aún se necesita una revisión
+humana en una sesión Windows con dispositivo de audio. No marcar ningún punto
+como verificado sin ejecutarlo.
 
 ## Ejecución
 
@@ -22,7 +23,8 @@ dispositivo de audio. No marcar ningún punto como verificado sin ejecutarlo.
 - [ ] Cambiar patch, tonalidad y modo actualiza el contenido mostrado sin
   desincronizar los modelos.
 - [ ] Mantener pulsado cada botón de acorde produce el acorde indicado y al
-  soltarlo se oyen releases limpios.
+  soltarlo se oyen releases limpios; el LED acompaña tanto el hold del botón
+  como el de las teclas 1–7.
 - [ ] Las teclas 1–7 producen los mismos acordes; auto-repeat no dispara notas
   adicionales y los controles enfocados conservan sus teclas.
 - [ ] El medidor responde al nivel de salida y cae gradualmente al terminar el
@@ -32,13 +34,19 @@ dispositivo de audio. No marcar ningún punto como verificado sin ejecutarlo.
   ni bloquea la interfaz.
 - [ ] Bloquear o arrastrar la ventana no causa glitches audibles ni deja el
   motor en un estado incoherente.
-- [ ] Tipografía, contraste, estados presionados, foco y escalado son legibles
-  en la resolución/DPI objetivo.
+- [ ] En el tema predeterminado, el panel gris-beige, los marcos negros, la
+  serigrafía, las perillas estriadas, los selectores y LEDs son legibles; el
+  tema ámbar conserva contraste equivalente.
+- [ ] En 1280×720 y 960×600 no hay texto cortado, glifos vacíos, controles
+  solapados ni contenido fuera de la ventana.
+- [ ] El espacio del joystick y del secuenciador se percibe como reservado; no
+  aparenta ser un control funcional.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana
 nativa. Las capturas automatizadas
 [`drumaspro-default-1280x720.png`](./screenshots/drumaspro-default-1280x720.png),
 [`drumaspro-default-960x600.png`](./screenshots/drumaspro-default-960x600.png) y
-[`drumaspro-amber-1280x720.png`](./screenshots/drumaspro-amber-1280x720.png) no
+[`drumaspro-amber-1280x720.png`](./screenshots/drumaspro-amber-1280x720.png) y
+[`drumaspro-amber-960x600.png`](./screenshots/drumaspro-amber-960x600.png) no
 sustituyen esta comprobación.

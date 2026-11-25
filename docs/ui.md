@@ -35,9 +35,18 @@ El ejecutable queda en
 `build\vs2026\src\ui\qt\Release\drumaspro.exe`. Para configurar, compilar y
 desplegar sin abrirlo, usa `.\tools\run-ui.ps1 -BuildOnly`.
 
-La UI usa fuentes instaladas en el sistema (Segoe UI para etiquetas y una fuente
-monoespaciada del sistema para las pantallas LCD); no incluye fuentes
-redistribuidas.
+La piel predeterminada usa un panel gris-beige cálido, marcos negros y acentos
+verdes discretos; el tema ámbar/oscuro sigue disponible. El volumen principal y
+los parámetros tienen escalas impresas, perillas con estrías dibujadas,
+selectores rotativos discretos y teclas de acorde con LED rojo. La franja
+inferior reserva visualmente espacio para el joystick y un secuenciador de 16
+pasos, todavía sin lógica. Los seis efectos se muestran como módulos
+individuales con el número de slot correcto.
+
+Las fuentes son las instaladas en el sistema (Arial Narrow/Arial para
+serigrafía y `monospace` para LCD); no se ha añadido ni
+redistribuido una fuente. La elección de una fuente OFL verificada queda para el
+pulido visual.
 
 ## Capas y flujo
 
@@ -69,9 +78,9 @@ selector.
 Con `DRUMAS_BUILD_UI=ON`, `ctest --preset vs2026-release` incluye `qt_ui_tests`.
 Ese test carga la pantalla en la plataforma `offscreen`, comprueba los modelos
 y compara los batches enviados por botones y atajos; también guarda capturas a
-1280×720 y 960×600 para inspección. No abre un dispositivo de audio. Las imágenes son
-evidencia de render QML y no certifican el aspecto en una ventana nativa ni la
-calidad sonora. La revisión manual de audio/dispositivo sigue pendiente; véase
+1280×720 y 960×600 en ambos temas para inspección. No abre un dispositivo de
+audio. Las imágenes son evidencia de render QML y no certifican el aspecto en
+una ventana nativa ni la calidad sonora. La revisión manual de audio/dispositivo sigue pendiente; véase
 [`ui-checklist.md`](./ui-checklist.md).
 
 La aplicación de consola y la prueba de aislamiento se compilan sin Qt. La CI
