@@ -5,40 +5,123 @@ QtObject {
     property bool amberMode: false
     property bool compactMode: false
 
-    readonly property color background: amberMode ? "#120f0a" : "#111313"
-    readonly property color panel: amberMode ? "#211a10" : "#1b1e1e"
-    readonly property color raised: amberMode ? "#302419" : "#262a29"
-    readonly property color edge: amberMode ? "#51402a" : "#3d4541"
-    readonly property color trim: amberMode ? "#8c6730" : "#3d4541"
-    readonly property color accent: amberMode ? "#e5aa49" : "#58b7a3"
-    readonly property color accentBright: amberMode ? "#ffd27a" : "#a0e8d4"
-    readonly property color ink: "#f0e8d8"
-    readonly property color mutedInk: amberMode ? "#b0a58f" : "#9b9b8e"
-    readonly property color danger: "#d46a52"
-    readonly property color meterOn: amberMode ? "#e5aa49" : "#58b7a3"
-    readonly property color meterOff: amberMode ? "#493b29" : "#393c38"
+    readonly property color clear: "transparent"
+    readonly property color background: amberMode ? "#11100d" : "#bdb7a9"
+    readonly property color panel: amberMode ? "#211d17" : "#cfc9b8"
+    readonly property color panelInset: amberMode ? "#15130f" : "#b8b1a1"
+    readonly property color panelRaised: amberMode ? "#30291e" : "#ded8c9"
+    readonly property color panelLight: amberMode ? "#403728" : "#ebe5d7"
+    readonly property color panelShadow: amberMode ? "#080807" : "#918a7c"
+    readonly property color ink: amberMode ? "#eee5d3" : "#151612"
+    readonly property color mutedInk: amberMode ? "#a99c83" : "#4d4b43"
+    readonly property color edge: amberMode ? "#080807" : "#151612"
+    readonly property color trim: amberMode ? "#514330" : "#5c5a51"
+    readonly property color accent: amberMode ? "#e5aa49" : "#405746"
+    readonly property color accentBright: amberMode ? "#ffd27a" : "#6f8b70"
+    readonly property color sectionFill: amberMode ? "#090908" : "#171815"
+    readonly property color sectionInk: "#f0e9dc"
+    readonly property color lcdFace: amberMode ? "#0a0c08" : "#20271f"
+    readonly property color lcdInk: amberMode ? "#ffd27a" : "#cee0b5"
+    readonly property color lcdMuted: amberMode ? "#a48b61" : "#9ca98b"
+    readonly property color ledOff: amberMode ? "#4d2823" : "#783b35"
+    readonly property color ledOn: "#ed4338"
+    readonly property color meterOn: amberMode ? "#e5aa49" : "#405746"
+    readonly property color meterOff: amberMode ? "#493b29" : "#77766b"
+    readonly property color knobFace: amberMode ? "#25231d" : "#343632"
+    readonly property color knobFaceEdge: amberMode ? "#090908" : "#151612"
+    readonly property color knobRidge: amberMode ? "#716044" : "#62635c"
+    readonly property color knobPointer: "#f5f0e4"
+    readonly property color knobBase: amberMode ? "#544833" : "#e4dece"
+    readonly property color knobShadow: amberMode ? "#080807" : "#8a8375"
+    readonly property color toggleOn: amberMode ? "#bd842c" : "#607b61"
+    readonly property color toggleOff: amberMode ? "#29251e" : "#777568"
+    readonly property color dialTrack: amberMode ? "#514330" : "#827e72"
+    readonly property color dialValue: amberMode ? "#e5aa49" : "#405746"
 
-    readonly property string displayFont:
-        Qt.platform.os === "windows" ? "Lucida Console" : "monospace"
-    readonly property string labelFont: "Segoe UI"
+    readonly property string labelFont: "Arial Narrow"
+    readonly property string bodyFont: "Arial"
+    readonly property string displayFont: "monospace"
+    readonly property string brandFont: "Arial"
 
     readonly property int windowWidth: 1280
     readonly property int windowHeight: 720
+    readonly property int frameInset: compactMode ? 8 : 12
     readonly property int padding: compactMode ? 8 : 12
-    readonly property int compactPadding: compactMode ? 5 : 7
-    readonly property int spacing: compactMode ? 6 : 8
-    readonly property int corner: 5
-    readonly property int titleSize: compactMode ? 18 : 20
-    readonly property int sectionSize: 14
-    readonly property int labelSize: 11
-    readonly property int displaySize: 14
-    readonly property int knobDiameter: compactMode ? 54 : 64
-    readonly property int knobWidth: compactMode ? 106 : 112
-    readonly property int knobHeight: compactMode ? 100 : 132
+    readonly property int spacing: compactMode ? 6 : 7
+    readonly property int groupPadding: compactMode ? 6 : 9
+    readonly property int corner: 4
+    readonly property int mainBorderWidth: compactMode ? 3 : 4
+    readonly property int moduleBorderWidth: compactMode ? 2 : 3
+    readonly property int hairlineWidth: 1
+    readonly property int insetFrameGap: 2
+    readonly property int sectionRuleHeight: compactMode ? 1 : 2
+    readonly property int brandTracking: 2
+    readonly property int serigraphyTracking: 1
+    readonly property real knobLabelTracking: 0.6
+    readonly property int sectionHeight: compactMode ? 20 : 23
+    readonly property int titleSize: compactMode ? 18 : 23
+    readonly property int sectionSize: compactMode ? 11 : 13
+    readonly property int labelSize: compactMode ? 9 : 10
+    readonly property int tinySize: compactMode ? 7 : 8
+    readonly property int displaySize: compactMode ? 10 : 11
+    readonly property int smallTextSize: compactMode ? 8 : 9
+    readonly property int brandSize: compactMode ? 21 : 26
+    readonly property int lcdWidth: compactMode ? 91 : 112
+    readonly property int lcdHeight: compactMode ? 38 : 45
+    readonly property int lcdWideWidth: compactMode ? 124 : 150
+    readonly property int lcdWideHeight: compactMode ? 41 : 48
+    readonly property int knobSmallDiameter: compactMode ? 54 : 62
+    readonly property int knobSmallWidth: compactMode ? 76 : 88
+    readonly property int knobSmallHeight: compactMode ? 90 : 110
+    readonly property int knobLargeDiameter: compactMode ? 68 : 102
+    readonly property int knobLargeWidth: compactMode ? 100 : 142
+    readonly property int knobLargeHeight: compactMode ? 100 : 130
+    readonly property int knobSmallTicks: compactMode ? 15 : 17
+    readonly property int knobLargeTicks: 21
+    readonly property int knobRingWidth: compactMode ? 3 : 4
+    readonly property int knobRidgeWidth: 1
+    readonly property int knobRidgeCount: 32
+    readonly property int knobValueLineWidth: 3
     readonly property int knobDragDistance: compactMode ? 100 : 120
-    readonly property int arcWidth: compactMode ? 4 : 5
-    readonly property int effectSlotWidth: compactMode ? 145 : 166
-    readonly property int effectSlotHeight: compactMode ? 152 : 176
-    readonly property int chordButtonWidth: compactMode ? 112 : 118
-    readonly property int chordButtonHeight: compactMode ? 72 : 80
+    readonly property int knobLabelHeight: compactMode ? 12 : 14
+    readonly property int knobValueHeight: compactMode ? 12 : 14
+    readonly property int rotaryDiameter: compactMode ? 66 : 78
+    readonly property int rotaryWidth: compactMode ? 94 : 112
+    readonly property int rotaryHeight: compactMode ? 104 : 118
+    readonly property int rotaryLabelSize: compactMode ? 7 : 8
+    readonly property int rotaryLabelHeight: compactMode ? 10 : 12
+    readonly property int rotaryOptionLabelWidth: compactMode ? 28 : 32
+    readonly property int rotaryDragStep: compactMode ? 16 : 20
+    readonly property int rotaryRidgeCount: 24
+    readonly property int rotaryMinimumTickCount: 3
+    readonly property int selectorWidth: compactMode ? 104 : 124
+    readonly property int selectorHeight: compactMode ? 29 : 32
+    readonly property int selectorIndicatorWidth: compactMode ? 8 : 9
+    readonly property int selectorIndicatorHeight: compactMode ? 5 : 6
+    readonly property int toggleWidth: compactMode ? 88 : 102
+    readonly property int toggleHeight: compactMode ? 28 : 32
+    readonly property int pressedOffset: 2
+    readonly property int chordButtonWidth: compactMode ? 124 : 142
+    readonly property int chordButtonHeight: compactMode ? 80 : 92
+    readonly property int chordLedDiameter: compactMode ? 7 : 8
+    readonly property int chordButtonGap: compactMode ? 3 : 4
+    readonly property int meterBarWidth: compactMode ? 5 : 6
+    readonly property int meterBarHeight: compactMode ? 11 : 13
+    readonly property int ledBorderWidth: 1
+    readonly property int masterValueHeight: compactMode ? 14 : 16
+    readonly property int effectSlotWidth: compactMode ? 145 : 190
+    readonly property int effectSlotHeight: compactMode ? 110 : 126
+    readonly property int futureDockHeight: compactMode ? 42 : 50
+    readonly property int futureDockWidth: compactMode ? 130 : 190
+    readonly property int masterHeaderHeight: compactMode ? 100 : 130
+    readonly property int controlSideWidth: compactMode ? 202 : 238
+    readonly property int parameterGroupPadding: compactMode ? 3 : 5
+    readonly property int rotaryPanelWidth: compactMode ? 94 : 112
+    readonly property int slotLabelHeight: compactMode ? 10 : 12
+    readonly property int sliderHeight: compactMode ? 18 : 20
+    readonly property int inlineGap: compactMode ? 3 : 5
+    readonly property int stepCellWidth: compactMode ? 23 : 30
+    readonly property int stepCellHeight: compactMode ? 22 : 28
+    readonly property int futureLabelWidth: compactMode ? 120 : 170
+    readonly property int themeToggleWidth: compactMode ? 66 : 78
 }

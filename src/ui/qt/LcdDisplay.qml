@@ -5,32 +5,38 @@ Rectangle {
     property string label: ""
     property string value: ""
     property string unit: ""
+    property bool wide: false
 
-    implicitWidth: 180
-    implicitHeight: 58
+    implicitWidth: wide ? Theme.lcdWideWidth : Theme.lcdWidth
+    implicitHeight: wide ? Theme.lcdWideHeight : Theme.lcdHeight
     radius: Theme.corner
-    color: Theme.background
+    color: Theme.lcdFace
     border.color: Theme.edge
+    border.width: Theme.moduleBorderWidth
 
     Column {
         anchors.fill: parent
-        anchors.margins: Theme.compactPadding
-        spacing: Theme.compactPadding / 3
+        anchors.margins: Theme.groupPadding
+        spacing: Theme.inlineGap
 
         Text {
+            width: parent.width
             text: root.label
-            color: Theme.mutedInk
+            color: Theme.lcdMuted
             font.family: Theme.labelFont
-            font.pixelSize: Theme.labelSize
-            font.letterSpacing: 1
+            font.pixelSize: Theme.smallTextSize
+            font.letterSpacing: Theme.serigraphyTracking
+            elide: Text.ElideRight
         }
 
         Text {
+            width: parent.width
             text: root.value + (root.unit.length > 0 ? " " + root.unit : "")
-            color: Theme.accentBright
+            color: Theme.lcdInk
             font.family: Theme.displayFont
             font.pixelSize: Theme.displaySize
             font.bold: true
+            elide: Text.ElideRight
         }
     }
 }

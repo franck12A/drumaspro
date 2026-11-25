@@ -7,75 +7,156 @@ Item {
     property real value: 0
     property real minimum: 0
     property real maximum: 1
+    property bool large: false
     signal valueEdited(real nextValue)
 
-    implicitWidth: Theme.knobWidth
-    implicitHeight: Theme.knobHeight
+    readonly property int dialDiameter: large
+        ? Theme.knobLargeDiameter : Theme.knobSmallDiameter
+    implicitWidth: large ? Theme.knobLargeWidth : Theme.knobSmallWidth
+    implicitHeight: large ? Theme.knobLargeHeight : Theme.knobSmallHeight
 
     Column {
         anchors.fill: parent
-        spacing: Theme.compactPadding / 2
+        spacing: Theme.inlineGap
+
+        Text {
+            id: labelText
+            width: parent.width
+            height: Theme.knobLabelHeight
+            text: root.label
+            color: Theme.ink
+            font.family: Theme.labelFont
+            font.pixelSize: Theme.labelSize
+            font.bold: true
+            font.letterSpacing: Theme.knobLabelTracking
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
 
         Canvas {
             id: dial
-            width: Theme.knobDiameter
-            height: Theme.knobDiameter
+            width: root.dialDiameter
+            height: root.dialDiameter
             anchors.horizontalCenter: parent.horizontalCenter
+
+            function shortNumber(number) {
+                if (Math.abs(number) >= 1000)
+                    return Math.round(number / 1000) + "k"
+                if (Math.abs(number) < 10)
+                    return number.toFixed(1)
+                return Math.round(number).toString()
+            }
 
             onPaint: {
                 const context = getContext("2d")
                 context.reset()
                 const center = width / 2
-                const radius = width * 0.38
+                const outerRadius = width * 0.48
+                const faceRadius = width * 0.36
                 const start = Math.PI * 0.75
                 const range = Math.PI * 1.5
                 const fraction = root.maximum > root.minimum
                     ? Math.max(0, Math.min(1, (root.value - root.minimum) /
                                                    (root.maximum - root.minimum)))
                     : 0
-                context.lineWidth = Theme.arcWidth
-                context.lineCap = "round"
-                context.strokeStyle = Theme.edge
+                const tickCount = root.large ? Theme.knobLargeTicks : Theme.knobSmallTicks
+
+                context.fillStyle = Theme.knobShadow
                 context.beginPath()
-                context.arc(center, center, radius, start, start + range)
-                context.stroke()
-                context.strokeStyle = Theme.accent
-                context.beginPath()
-                context.arc(center, center, radius, start, start + range * fraction)
-                context.stroke()
-                const angle = start + range * fraction
-                context.fillStyle = Theme.accentBright
-                context.beginPath()
-                context.arc(center + Math.cos(angle) * radius,
-                            center + Math.sin(angle) * radius, Theme.arcWidth, 0,
+                context.arc(center, center + Theme.knobRingWidth, outerRadius, 0,
                             Math.PI * 2)
                 context.fill()
+
+                context.fillStyle = Theme.knobBase
+                context.beginPath()
+                context.arc(center, center, outerRadius, 0, Math.PI * 2)
+                context.fill()
+
+                for (let ridge = 0; ridge < Theme.knobRidgeCount; ++ridge) {
+                    const angle = ridge * Math.PI * 2 / Theme.knobRidgeCount
+                    const inner = outerRadius * 0.86
+                    const outer = outerRadius * 0.96
+                    context.strokeStyle = Theme.knobRidge
+                    context.lineWidth = Theme.knobRidgeWidth
+                    context.beginPath()
+                    context.moveTo(center + Math.cos(angle) * inner,
+                                   center + Math.sin(angle) * inner)
+                    context.lineTo(center + Math.cos(angle) * outer,
+                                   center + Math.sin(angle) * outer)
+                    context.stroke()
+                }
+
+                context.fillStyle = Theme.knobFace
+                context.beginPath()
+                context.arc(center, center, faceRadius, 0, Math.PI * 2)
+                context.fill()
+                context.strokeStyle = Theme.knobFaceEdge
+                context.lineWidth = Theme.knobRingWidth
+                context.stroke()
+
+                for (let tick = 0; tick <= tickCount; ++tick) {
+                    const angle = start + range * tick / tickCount
+                    const major = tick % 4 === 0
+                    const inner = outerRadius * (major ? 0.68 : 0.75)
+                    const outer = outerRadius * 0.83
+                    context.strokeStyle = major ? Theme.ink : Theme.trim
+                    context.lineWidth = major ? Theme.knobRingWidth : Theme.knobRidgeWidth
+                    context.beginPath()
+                    context.moveTo(center + Math.cos(angle) * inner,
+                                   center + Math.sin(angle) * inner)
+                    context.lineTo(center + Math.cos(angle) * outer,
+                                   center + Math.sin(angle) * outer)
+                    context.stroke()
+                }
+
+                context.fillStyle = Theme.ink
+                context.font = Theme.tinySize + "px " + Theme.displayFont
+                context.textAlign = "center"
+                context.textBaseline = "middle"
+                context.fillText(shortNumber(root.minimum),
+                                 center + Math.cos(start) * outerRadius * 0.66,
+                                 center + Math.sin(start) * outerRadius * 0.66)
+                context.fillText(shortNumber(root.maximum),
+                                 center + Math.cos(start + range) * outerRadius * 0.66,
+                                 center + Math.sin(start + range) * outerRadius * 0.66)
+
+                const angle = start + range * fraction
+                context.strokeStyle = Theme.knobPointer
+                context.lineWidth = Theme.knobValueLineWidth
+                context.lineCap = "round"
+                context.beginPath()
+                context.moveTo(center - Math.cos(angle) * faceRadius * 0.12,
+                               center - Math.sin(angle) * faceRadius * 0.12)
+                context.lineTo(center + Math.cos(angle) * faceRadius * 0.67,
+                               center + Math.sin(angle) * faceRadius * 0.67)
+                context.stroke()
+                context.fillStyle = Theme.knobPointer
+                context.beginPath()
+                context.arc(center, center, Theme.knobRingWidth, 0, Math.PI * 2)
+                context.fill()
             }
+
             Connections {
                 target: root
                 function onValueChanged() { dial.requestPaint() }
+                function onMinimumChanged() { dial.requestPaint() }
+                function onMaximumChanged() { dial.requestPaint() }
+                function onLargeChanged() { dial.requestPaint() }
             }
         }
 
         Text {
             width: parent.width
-            text: root.label
-            color: Theme.mutedInk
-            font.family: Theme.labelFont
-            font.pixelSize: Theme.labelSize
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
-        }
-
-        Text {
-            width: parent.width
+            height: Theme.knobValueHeight
             text: (root.value >= 100 ? root.value.toFixed(0) : root.value.toFixed(2)) +
                   (root.unit.length > 0 ? " " + root.unit : "")
             color: Theme.ink
             font.family: Theme.displayFont
-            font.pixelSize: Theme.labelSize
+            font.pixelSize: Theme.smallTextSize
             horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
         }
     }
 

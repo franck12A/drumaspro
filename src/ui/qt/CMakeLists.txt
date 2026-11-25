@@ -20,6 +20,7 @@ qt_add_qml_module(drumaspro_qt
         ToggleButton.qml
         LcdDisplay.qml
         LevelMeter.qml
+        RotarySelector.qml
         Selector.qml
         SectionTitle.qml
         EffectSlot.qml)
