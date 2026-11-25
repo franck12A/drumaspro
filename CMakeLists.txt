@@ -72,6 +72,7 @@ endif ()
 add_subdirectory(third_party)
 add_subdirectory(src/core)
 add_subdirectory(src/fx)
+add_subdirectory(src/music)
 add_subdirectory(src/synth)
 add_subdirectory(src/engine)
 

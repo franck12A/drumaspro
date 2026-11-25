@@ -30,6 +30,9 @@ add_executable(
     synth/test_patches.cpp
     synth/test_patch_switching.cpp
     synth/test_performance.cpp
+    music/test_chords.cpp
+    music/test_scales.cpp
+    engine/test_music_rendering.cpp
     fx/test_effect_chain.cpp
     fx/test_effects.cpp
     engine/test_audio_graph.cpp
@@ -42,6 +45,7 @@ target_link_libraries(
     PRIVATE drumas::compile_options
             drumas::core
             drumas::fx
+            drumas::music
             drumas::synth
             drumas::engine
             Catch2::Catch2WithMain)
