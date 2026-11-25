@@ -9,7 +9,12 @@ set(ENV{QSG_RHI_BACKEND} "software")
 
 execute_process(
     COMMAND "${DRUMAS_TEST_EXECUTABLE}"
-    RESULT_VARIABLE _test_result)
+    RESULT_VARIABLE _test_result
+    OUTPUT_VARIABLE _test_stdout
+    ERROR_VARIABLE _test_stderr)
 if (NOT _test_result EQUAL 0)
-    message(FATAL_ERROR "Qt UI tests failed with exit code ${_test_result}")
+    message(FATAL_ERROR
+        "Qt UI tests failed with exit code ${_test_result}\n"
+        "stdout:\n${_test_stdout}\n"
+        "stderr:\n${_test_stderr}")
 endif ()

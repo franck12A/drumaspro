@@ -10,6 +10,7 @@ set(_qml_files
     "${_qml_dir}/ToggleButton.qml"
     "${_qml_dir}/LcdDisplay.qml"
     "${_qml_dir}/LevelMeter.qml"
+    "${_qml_dir}/RotarySelector.qml"
     "${_qml_dir}/Selector.qml"
     "${_qml_dir}/SectionTitle.qml"
     "${_qml_dir}/EffectSlot.qml")

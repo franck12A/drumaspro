@@ -1,8 +1,7 @@
 #include <QDir>
 #include <QCoreApplication>
-#include <QGuiApplication>
-#include <QFont>
 #include <QFontDatabase>
+#include <QGuiApplication>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QQuickStyle>
@@ -129,14 +128,17 @@ private Q_SLOTS:
     }
 
     void qmlFitsRequiredWindowSizesAndCapturesBothThemes() {
-        const QDir fontDirectory(qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
+        const QDir fontDirectory(
+            qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
         for (const QString& fileName :
-             {QStringLiteral("segoeui.ttf"), QStringLiteral("lucon.ttf")}) {
+             {QStringLiteral("arial.ttf"), QStringLiteral("arialn.ttf"),
+              QStringLiteral("segoeui.ttf"), QStringLiteral("lucon.ttf")}) {
             const QString fontPath = fontDirectory.filePath(fileName);
             if (QFileInfo::exists(fontPath)) {
                 QVERIFY(QFontDatabase::addApplicationFont(fontPath) >= 0);
             }
         }
+
         drumas::ui::EngineBridge bridge;
         QQmlApplicationEngine qml;
         qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
@@ -174,6 +176,38 @@ private Q_SLOTS:
                         QStringLiteral("drumaspro-default-960x600.png")));
         QVERIFY(capture(QSize(1280, 720), true,
                         QStringLiteral("drumaspro-amber-1280x720.png")));
+        QVERIFY(capture(QSize(960, 600), true,
+                        QStringLiteral("drumaspro-amber-960x600.png")));
+    }
+
+    void rotarySelectorsSnapOnClickAndKeyboard() {
+        drumas::ui::EngineBridge bridge;
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->resize(1280, 720);
+        window->show();
+        QTest::qWait(100);
+
+        auto* patchSelector =
+            findVisualItem(window->contentItem(), QStringLiteral("patchSelector"));
+        QVERIFY(patchSelector != nullptr);
+        QCOMPARE(patchSelector->property("currentIndex").toInt(), 0);
+
+        const QPoint center = patchSelector
+            ->mapToScene(QPointF(patchSelector->width() / 2,
+                                 patchSelector->height() / 2))
+            .toPoint();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center);
+        QCOMPARE(patchSelector->property("currentIndex").toInt(), 1);
+
+        patchSelector->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(patchSelector->property("currentIndex").toInt(), 2);
     }
 
     void chordButtonsAndKeyboardKeysSubmitMatchingHoldReleaseBatches() {
@@ -204,11 +238,13 @@ private Q_SLOTS:
             sink.batches.clear();
             QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
             QCOMPARE(sink.batches.size(), std::size_t{1});
+            QVERIFY(button->property("chordActive").toBool());
             const auto buttonPressBatch = sink.batches.back();
             QCOMPARE(buttonPressBatch.size(), std::size_t{3});
             QCOMPARE(buttonPressBatch.front().type, drumas::core::CommandType::NoteOn);
             QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
             QCOMPARE(sink.batches.size(), std::size_t{2});
+            QVERIFY(!button->property("chordActive").toBool());
             const auto buttonReleaseBatch = sink.batches.back();
             QCOMPARE(buttonReleaseBatch.size(), std::size_t{3});
             QCOMPARE(buttonReleaseBatch.front().type, drumas::core::CommandType::NoteOff);
@@ -219,6 +255,7 @@ private Q_SLOTS:
             const auto key = static_cast<Qt::Key>(Qt::Key_1 + row);
             QTest::keyPress(window, key);
             QCOMPARE(sink.batches.size(), std::size_t{1});
+            QVERIFY(button->property("chordActive").toBool());
             const auto keyPressBatch = sink.batches.back();
             if (row == 0) {
                 QKeyEvent autoRepeat(QEvent::KeyPress, key, Qt::NoModifier,
@@ -228,6 +265,7 @@ private Q_SLOTS:
             }
             QTest::keyRelease(window, key);
             QCOMPARE(sink.batches.size(), std::size_t{2});
+            QVERIFY(!button->property("chordActive").toBool());
             const auto keyReleaseBatch = sink.batches.back();
 
             compareCommandBatches(buttonPressBatch, keyPressBatch);
