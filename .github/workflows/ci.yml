@@ -48,7 +48,7 @@ jobs:
           "family=$family" >> $env:GITHUB_OUTPUT
 
       - name: Configure
-        run: cmake --preset ${{ steps.family.outputs.family }}
+        run: cmake --preset ${{ steps.family.outputs.family }} -DDRUMAS_BUILD_UI=OFF
 
       - name: Build (${{ matrix.config.name }})
         run: cmake --build --preset ${{ steps.family.outputs.family }}-${{ matrix.config.slug }} --parallel

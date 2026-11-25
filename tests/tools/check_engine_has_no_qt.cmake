@@ -1,0 +1,43 @@
+if (NOT DEFINED DRUMAS_SOURCE_DIR)
+    message(FATAL_ERROR "DRUMAS_SOURCE_DIR must point to the source directory")
+endif ()
+
+set(_modules core fx synth engine music)
+set(_source_extensions h hpp hh cpp cc cxx)
+set(_violations "")
+
+if (DRUMAS_MODULE_LINK_INTERFACES MATCHES "Qt[56]::")
+    list(APPEND _violations "engine module link interfaces: ${DRUMAS_MODULE_LINK_INTERFACES}")
+endif ()
+
+foreach (_module IN LISTS _modules)
+    set(_module_dir "${DRUMAS_SOURCE_DIR}/${_module}")
+    if (NOT EXISTS "${_module_dir}")
+        continue()
+    endif ()
+
+    foreach (_extension IN LISTS _source_extensions)
+        file(GLOB_RECURSE _source_files "${_module_dir}/*.${_extension}")
+        foreach (_file IN LISTS _source_files)
+            file(READ "${_file}" _contents)
+            if (_contents MATCHES "#[ \t]*include[ \t]*[<\"]Q[A-Za-z0-9_/]*|Qt[56]")
+                list(APPEND _violations "${_file}: Qt include or reference")
+            endif ()
+        endforeach ()
+    endforeach ()
+
+    set(_module_cmake "${_module_dir}/CMakeLists.txt")
+    if (EXISTS "${_module_cmake}")
+        file(READ "${_module_cmake}" _contents)
+        if (_contents MATCHES "Qt[56]::|find_package[ \t]*\\([ \t]*Qt[56]")
+            list(APPEND _violations "${_module_cmake}: Qt dependency")
+        endif ()
+    endif ()
+endforeach ()
+
+if (_violations)
+    list(JOIN _violations "\n  " _details)
+    message(FATAL_ERROR "Qt leaked into an engine module:\n  ${_details}")
+endif ()
+
+message(STATUS "core/fx/synth/engine/music remain independent of Qt")

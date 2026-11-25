@@ -49,3 +49,29 @@ target_link_libraries(
 # Tests are timing-sensitive by nature (block timing) but must never hang CI.
 include(Catch)
 catch_discover_tests(drumas_tests PROPERTIES TIMEOUT 120)
+
+set(_drumas_module_link_interfaces "")
+foreach (_target drumas_core drumas_fx drumas_synth drumas_engine drumas_music)
+    if (TARGET "${_target}")
+        get_target_property(_interface_links "${_target}" INTERFACE_LINK_LIBRARIES)
+        get_target_property(_private_links "${_target}" LINK_LIBRARIES)
+        if (_interface_links)
+            string(REPLACE ";" "|" _links_text "${_interface_links}")
+            string(REPLACE "$<" "GENEX_OPEN_" _links_text "${_links_text}")
+            string(APPEND _drumas_module_link_interfaces "|${_links_text}")
+        endif ()
+        if (_private_links)
+            string(REPLACE ";" "|" _links_text "${_private_links}")
+            string(REPLACE "$<" "GENEX_OPEN_" _links_text "${_links_text}")
+            string(APPEND _drumas_module_link_interfaces "|${_links_text}")
+        endif ()
+    endif ()
+endforeach ()
+
+add_test(
+    NAME engine_has_no_qt
+    COMMAND
+        "${CMAKE_COMMAND}"
+        "-DDRUMAS_SOURCE_DIR=${DRUMAS_SRC_DIR}"
+        "-DDRUMAS_MODULE_LINK_INTERFACES=${_drumas_module_link_interfaces}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_engine_has_no_qt.cmake")

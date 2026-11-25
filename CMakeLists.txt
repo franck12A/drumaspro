@@ -20,11 +20,22 @@ endif ()
 
 option(DRUMAS_BUILD_TESTS "Build unit tests and register them with CTest" ON)
 option(DRUMAS_BUILD_APP "Build the console application" ON)
+option(DRUMAS_BUILD_UI "Build the optional Qt/QML user interface" OFF)
 option(DRUMAS_WARNINGS_AS_ERRORS "Treat warnings in first-party code as errors" ON)
 option(DRUMAS_ENABLE_CLANG_TIDY "Run clang-tidy while compiling first-party code" OFF)
 option(DRUMAS_CLANG_TIDY_WARNINGS_AS_ERRORS "Let clang-tidy findings fail the build" OFF)
 
 set(DRUMAS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+if (DRUMAS_BUILD_UI)
+    find_package(Qt6 6.8.3 EXACT QUIET COMPONENTS
+        Core Gui Qml Quick QuickControls2 QuickLayouts Test)
+    if (Qt6_FOUND)
+        message(STATUS "Qt ${Qt6_VERSION} found; Qt UI can be built")
+    else ()
+        message(STATUS "Qt 6.8.3 not found; continuing without the optional UI")
+    endif ()
+endif ()
 
 # ---------------------------------------------------------------------------
 # Compiler settings for first-party targets only. Never applied to third_party.
