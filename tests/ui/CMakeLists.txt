@@ -61,3 +61,12 @@ add_test(
         "-DDRUMAS_QT_BIN_DIR=${_qt_bin_dir}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_tests.cmake")
 set_tests_properties(qt_ui_tests PROPERTIES TIMEOUT 120)
+
+# The production module is not linked into the test executable, so this cheap
+# check inspects the qmldir CMake actually generated for the application.
+add_test(
+    NAME qml_theme_singleton
+    COMMAND
+        "${CMAKE_COMMAND}"
+        "-DDRUMAS_QMLDIR=${CMAKE_BINARY_DIR}/src/ui/qt/DrumasPro/qmldir"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_theme_singleton.cmake")

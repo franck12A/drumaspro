@@ -8,6 +8,11 @@ qt_add_executable(drumaspro_qt
     Models.h)
 set_target_properties(drumaspro_qt PROPERTIES OUTPUT_NAME drumaspro)
 
+# The singleton property must be set before qt_add_qml_module reads the
+# source list; otherwise the generated qmldir registers Theme as a plain type
+# and every Theme.* binding is undefined at runtime.
+set_source_files_properties(Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
 qt_add_qml_module(drumaspro_qt
     URI DrumasPro
     VERSION 1.0
@@ -24,7 +29,6 @@ qt_add_qml_module(drumaspro_qt
         Selector.qml
         SectionTitle.qml
         EffectSlot.qml)
-set_source_files_properties(Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 target_include_directories(drumaspro_qt PRIVATE "${DRUMAS_SRC_DIR}")
 target_compile_features(drumaspro_qt PRIVATE cxx_std_20)
