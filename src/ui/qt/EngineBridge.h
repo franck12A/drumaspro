@@ -49,17 +49,17 @@ public:
 
     Q_INVOKABLE bool start();
     Q_INVOKABLE void shutdown();
-    Q_INVOKABLE bool setParameter(quint32 id, double value);
+    Q_INVOKABLE bool setParameter(qulonglong id, double value);
     Q_INVOKABLE bool selectPatch(int index);
-    Q_INVOKABLE bool setEffectType(int slot, quint32 type);
+    Q_INVOKABLE bool setEffectType(int slot, qulonglong type);
     Q_INVOKABLE bool setEffectBypass(int slot, bool bypassed);
     Q_INVOKABLE bool setEffectMix(int slot, double mix);
-    Q_INVOKABLE bool setEffectParameter(int slot, quint32 id, double value);
+    Q_INVOKABLE bool setEffectParameter(int slot, qulonglong id, double value);
     Q_INVOKABLE bool setChordScale(int tonicSemitones, bool naturalMinor);
     Q_INVOKABLE bool playChord(int row, double velocity = 0.8);
     Q_INVOKABLE bool releaseChord(int row);
-    Q_INVOKABLE quint32 parameterId(const QString& name) const;
-    Q_INVOKABLE quint32 effectTypeId(int index) const noexcept;
+    Q_INVOKABLE qulonglong parameterId(const QString& name) const;
+    Q_INVOKABLE qulonglong effectTypeId(int index) const noexcept;
 
 Q_SIGNALS:
     void statusChanged();
@@ -70,6 +70,7 @@ private Q_SLOTS:
 
 private:
     void setError(QString message);
+    void applyPatchToMirror(int index);
 
     synth::SynthProcessor synth_;
     engine::AudioEngine engine_;

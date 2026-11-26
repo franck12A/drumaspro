@@ -105,6 +105,11 @@ private Q_SLOTS:
         QCOMPARE(parameters.data(parameters.index(0), drumas::ui::ParameterModel::ValueRole)
                      .toFloat(),
                  2.0F);
+        QCOMPARE(parameters.curveForId(id),
+                 static_cast<int>(drumas::core::ParameterCurve::Logarithmic));
+        QCOMPARE(parameters.data(parameters.index(0), drumas::ui::ParameterModel::CurveRole)
+                     .toInt(),
+                 1);
 
         drumas::ui::ChordModel chords;
         QCOMPARE(chords.rowCount(), 7);

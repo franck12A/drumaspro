@@ -7,8 +7,31 @@ Item {
     property real value: 0
     property real minimum: 0
     property real maximum: 1
+    // 0 = linear, 1 = logarithmic (core::ParameterCurve).
+    property int curve: 0
     property bool large: false
     signal valueEdited(real nextValue)
+
+    readonly property bool logarithmic: root.curve === 1 && root.minimum > 0 &&
+                                        root.maximum > root.minimum
+
+    function normalizedFor(number) {
+        if (root.maximum <= root.minimum)
+            return 0
+        if (root.logarithmic) {
+            return Math.max(0, Math.min(1, Math.log(number / root.minimum) /
+                                                   Math.log(root.maximum / root.minimum)))
+        }
+        return Math.max(0, Math.min(1, (number - root.minimum) /
+                                           (root.maximum - root.minimum)))
+    }
+
+    function valueForNormalized(number) {
+        const normalized = Math.max(0, Math.min(1, number))
+        if (root.logarithmic)
+            return root.minimum * Math.pow(root.maximum / root.minimum, normalized)
+        return root.minimum + normalized * (root.maximum - root.minimum)
+    }
 
     readonly property int dialDiameter: large
         ? Theme.knobLargeDiameter : Theme.knobSmallDiameter
@@ -56,10 +79,7 @@ Item {
                 const faceRadius = width * 0.36
                 const start = Math.PI * 0.75
                 const range = Math.PI * 1.5
-                const fraction = root.maximum > root.minimum
-                    ? Math.max(0, Math.min(1, (root.value - root.minimum) /
-                                                   (root.maximum - root.minimum)))
-                    : 0
+                const fraction = root.normalizedFor(root.value)
                 const tickCount = root.large ? Theme.knobLargeTicks : Theme.knobSmallTicks
 
                 context.fillStyle = Theme.knobShadow
@@ -142,6 +162,7 @@ Item {
                 function onValueChanged() { dial.requestPaint() }
                 function onMinimumChanged() { dial.requestPaint() }
                 function onMaximumChanged() { dial.requestPaint() }
+                function onCurveChanged() { dial.requestPaint() }
                 function onLargeChanged() { dial.requestPaint() }
             }
         }
@@ -164,18 +185,22 @@ Item {
         id: dragArea
         anchors.fill: parent
         property real pressedY: 0
-        property real pressedValue: 0
+        property real pressedFraction: 0
         onPressed: {
             pressedY = mouse.y
-            pressedValue = root.value
+            pressedFraction = root.normalizedFor(root.value)
         }
         onPositionChanged: {
             if (!pressed || root.maximum <= root.minimum)
                 return
-            const delta = (pressedY - mouse.y) / Theme.knobDragDistance *
-                          (root.maximum - root.minimum)
-            root.valueEdited(Math.max(root.minimum,
-                                      Math.min(root.maximum, pressedValue + delta)))
+            const delta = (pressedY - mouse.y) / Theme.knobDragDistance
+            root.valueEdited(root.valueForNormalized(pressedFraction + delta))
+        }
+        onWheel: function(wheel) {
+            if (root.maximum <= root.minimum)
+                return
+            const step = wheel.angleDelta.y > 0 ? 0.02 : -0.02
+            root.valueEdited(root.valueForNormalized(root.normalizedFor(root.value) + step))
         }
     }
 }

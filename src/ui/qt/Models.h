@@ -24,6 +24,7 @@ public:
         MinimumRole,
         MaximumRole,
         UnitRole,
+        CurveRole,
     };
     Q_ENUM(Role)
 
@@ -36,6 +37,7 @@ public:
     Q_INVOKABLE double minimumForId(qulonglong id) const noexcept;
     Q_INVOKABLE double maximumForId(qulonglong id) const noexcept;
     Q_INVOKABLE QString unitForId(qulonglong id) const;
+    Q_INVOKABLE int curveForId(qulonglong id) const noexcept;
 
     void setSnapshot(const bridge::ParameterSnapshot& snapshot);
     void setValue(core::ParameterId id, float value);

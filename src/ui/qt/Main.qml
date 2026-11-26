@@ -235,11 +235,12 @@ ApplicationWindow {
                     objectName: "masterKnob"
                     large: true
                     label: "MASTER"
-                    readonly property int controlId:
+                    readonly property var controlId:
                         engineBridge.parameterId("master.gain")
                     unit: engineBridge.parameterModel.unitForId(controlId)
                     minimum: engineBridge.parameterModel.minimumForId(controlId)
                     maximum: engineBridge.parameterModel.maximumForId(controlId)
+                    curve: engineBridge.parameterModel.curveForId(controlId)
                     value: engineBridge.parameterModel.valueForId(controlId)
                     onValueEdited: engineBridge.setParameter(controlId, nextValue)
                 }
@@ -373,7 +374,7 @@ ApplicationWindow {
                                                 model: modelData.controls
                                                 delegate: Knob {
                                                     required property var modelData
-                                                    readonly property int controlId:
+                                                    readonly property var controlId:
                                                         engineBridge.parameterId(
                                                             modelData.parameter)
                                                     label: modelData.label
@@ -383,6 +384,8 @@ ApplicationWindow {
                                                         .minimumForId(controlId)
                                                     maximum: engineBridge.parameterModel
                                                         .maximumForId(controlId)
+                                                    curve: engineBridge.parameterModel
+                                                        .curveForId(controlId)
                                                     value: engineBridge.parameterModel
                                                         .valueForId(controlId)
                                                     onValueEdited:

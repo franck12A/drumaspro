@@ -53,13 +53,15 @@ QVariant ParameterModel::data(const QModelIndex& index, int role) const {
         case MinimumRole: return parameter.descriptor.minValue;
         case MaximumRole: return parameter.descriptor.maxValue;
         case UnitRole: return unitName(parameter.descriptor.unit);
+        case CurveRole: return static_cast<int>(parameter.descriptor.curve);
         default: return {};
     }
 }
 
 QHash<int, QByteArray> ParameterModel::roleNames() const {
     return {{IdRole, "parameterId"}, {NameRole, "name"}, {ValueRole, "value"},
-            {MinimumRole, "minimum"}, {MaximumRole, "maximum"}, {UnitRole, "unit"}};
+            {MinimumRole, "minimum"}, {MaximumRole, "maximum"}, {UnitRole, "unit"},
+            {CurveRole, "curve"}};
 }
 
 int ParameterModel::count() const noexcept { return static_cast<int>(snapshot_.count); }
@@ -98,6 +100,15 @@ QString ParameterModel::unitForId(qulonglong id) const {
         }
     }
     return {};
+}
+
+int ParameterModel::curveForId(qulonglong id) const noexcept {
+    for (std::size_t row = 0; row < snapshot_.count; ++row) {
+        if (snapshot_.values[row].descriptor.id == id) {
+            return static_cast<int>(snapshot_.values[row].descriptor.curve);
+        }
+    }
+    return 0;
 }
 
 void ParameterModel::setSnapshot(const bridge::ParameterSnapshot& snapshot) {
