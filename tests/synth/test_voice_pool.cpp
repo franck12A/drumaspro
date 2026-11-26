@@ -131,6 +131,41 @@ TEST_CASE("note off releases the voices playing that note", "[synth][voices]") {
     REQUIRE(pool.activeVoiceCount() == 1);
 }
 
+TEST_CASE("oscillator levels are live and ramp on sounding voices", "[synth][voices][parameters]") {
+    drumas::synth::VoicePool pool;
+    pool.prepare(kSampleRate);
+    drumas::synth::Patch patch = testPatch();
+    patch.osc1Level = 1.0F;
+    patch.osc2Level = 0.0F;
+    patch.subLevel = 0.0F;
+    patch.noiseLevel = 0.0F;
+    drumas::synth::LiveParameters live = drumas::synth::liveParametersFrom(patch);
+
+    pool.noteOn(60, 1.0F, patch, live);
+    StereoBlock block;
+    float fullPeak = 0.0F;
+    for (int iteration = 0; iteration < 80; ++iteration) {
+        renderBlock(pool, block);
+        for (const float sample : block.left) {
+            fullPeak = std::max(fullPeak, std::fabs(sample));
+        }
+    }
+    REQUIRE(fullPeak > 0.01F);
+
+    live.osc1Level = 0.0F;
+    pool.setLiveParameters(live);
+    float silentPeak = 0.0F;
+    for (int iteration = 0; iteration < 80; ++iteration) {
+        renderBlock(pool, block);
+        if (iteration >= 40) {
+            for (const float sample : block.left) {
+                silentPeak = std::max(silentPeak, std::fabs(sample));
+            }
+        }
+    }
+    REQUIRE(silentPeak < fullPeak * 0.01F);
+}
+
 TEST_CASE("rendering voices produces finite, bounded stereo audio", "[synth][voices]") {
     drumas::synth::VoicePool pool;
     pool.prepare(kSampleRate);

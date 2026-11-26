@@ -74,6 +74,8 @@ static_assert(std::is_trivially_copyable_v<Patch>,
 struct LiveParameters {
     float cutoffHz = 5000.0F;
     float resonance = 0.1F;
+    float osc1Level = 0.5F;
+    float osc2Level = 0.5F;
     AdsrParameters ampEnvelope{};
     AdsrParameters filterEnvelope{};
 };
@@ -82,6 +84,8 @@ struct LiveParameters {
     LiveParameters live;
     live.cutoffHz = patch.cutoffHz;
     live.resonance = patch.resonance;
+    live.osc1Level = patch.osc1Level;
+    live.osc2Level = patch.osc2Level;
     live.ampEnvelope = patch.ampEnvelope;
     live.filterEnvelope = patch.filterEnvelope;
     return live;

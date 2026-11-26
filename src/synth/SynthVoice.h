@@ -55,6 +55,8 @@ public:
         baseCutoff_.prepare(sampleRate_);
         resonance_.prepare(sampleRate_);
         velocityGain_.prepare(sampleRate_);
+        osc1Level_.prepare(sampleRate_);
+        osc2Level_.prepare(sampleRate_);
         reset();
     }
 
@@ -73,6 +75,8 @@ public:
         baseCutoff_.reset(0.0F);
         resonance_.reset(0.0F);
         velocityGain_.reset(0.0F);
+        osc1Level_.reset(0.0F);
+        osc2Level_.reset(0.0F);
         note_ = 0;
         velocity_ = 0.0F;
         age_ = 0;
@@ -130,10 +134,10 @@ public:
             const float leftGain = std::cos(angle);
             const float rightGain = std::sin(angle);
             const float layerGain = 1.0F / static_cast<float>(layers);
-            layerGainLeft1_[layer] = leftGain * layerGain * patch.osc1Level;
-            layerGainRight1_[layer] = rightGain * layerGain * patch.osc1Level;
-            layerGainLeft2_[layer] = leftGain * layerGain * patch.osc2Level;
-            layerGainRight2_[layer] = rightGain * layerGain * patch.osc2Level;
+            layerGainLeft1_[layer] = leftGain * layerGain;
+            layerGainRight1_[layer] = rightGain * layerGain;
+            layerGainLeft2_[layer] = leftGain * layerGain;
+            layerGainRight2_[layer] = rightGain * layerGain;
         }
         for (int layer = layers; layer < kMaxUnison; ++layer) {
             layerGainLeft1_[layer] = 0.0F;
@@ -172,8 +176,12 @@ public:
             (1.0F - patch.velocityVolume) + patch.velocityVolume * velocity_;
         if (wasIdle) {
             velocityGain_.reset(velocityScale);
+            osc1Level_.reset(live.osc1Level);
+            osc2Level_.reset(live.osc2Level);
         } else {
             velocityGain_.setTargetValue(velocityScale);
+            osc1Level_.setTargetValue(live.osc1Level);
+            osc2Level_.setTargetValue(live.osc2Level);
         }
     }
 
@@ -190,6 +198,8 @@ public:
     void setLiveParameters(const LiveParameters& live) noexcept {
         baseCutoff_.setTargetValue(live.cutoffHz);
         resonance_.setTargetValue(live.resonance);
+        osc1Level_.setTargetValue(live.osc1Level);
+        osc2Level_.setTargetValue(live.osc2Level);
         ampEnvelope_.setParameters(live.ampEnvelope);
         filterEnvelope_.setParameters(live.filterEnvelope);
     }
@@ -212,6 +222,8 @@ public:
             const float amp = ampEnvelope_.nextValue();
             const float filterEnv = filterEnvelope_.nextValue();
             const float baseCutoff = baseCutoff_.getNextValue();
+            const float osc1Level = osc1Level_.getNextValue();
+            const float osc2Level = osc2Level_.getNextValue();
 
             const float octaves = patch_.filterEnvOctaves * filterEnv + velocityBrightness +
                                   patch_.lfoCutoffDepth * lfoValue * 2.0F;
@@ -237,9 +249,10 @@ public:
                 }
                 const float sample1 = osc1_[layer].nextSample();
                 const float sample2 = osc2_[layer].nextSample();
-                mixLeft += sample1 * layerGainLeft1_[layer] + sample2 * layerGainLeft2_[layer];
-                mixRight +=
-                    sample1 * layerGainRight1_[layer] + sample2 * layerGainRight2_[layer];
+                mixLeft += sample1 * layerGainLeft1_[layer] * osc1Level +
+                           sample2 * layerGainLeft2_[layer] * osc2Level;
+                mixRight += sample1 * layerGainRight1_[layer] * osc1Level +
+                            sample2 * layerGainRight2_[layer] * osc2Level;
             }
 
             if (hasSub) {
@@ -303,6 +316,8 @@ private:
     core::SmoothedValue baseCutoff_;
     core::SmoothedValue resonance_;
     core::SmoothedValue velocityGain_;
+    core::SmoothedValue osc1Level_;
+    core::SmoothedValue osc2Level_;
 
     Patch patch_{};
     float layerGainLeft1_[kMaxUnison]{};

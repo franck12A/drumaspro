@@ -275,6 +275,14 @@ private:
                 live_.resonance = value;
                 pool_.setLiveParameters(live_);
                 break;
+            case kOsc1Level:
+                live_.osc1Level = value;
+                pool_.setLiveParameters(live_);
+                break;
+            case kOsc2Level:
+                live_.osc2Level = value;
+                pool_.setLiveParameters(live_);
+                break;
             case kAmpAttackMs:
                 live_.ampEnvelope.attackMs = value;
                 pool_.setLiveParameters(live_);
@@ -316,9 +324,9 @@ private:
                 lfo_.setShape(lfoShape_);
                 break;
             default:
-                // Patch-level parameters (oscillator shape, levels, unison,
-                // LFO depths...) are not live-editable in this stage; they come
-                // from the patch. The registry still validated the value.
+                // Patch-level parameters (oscillator shape, unison, LFO depths...)
+                // are not live-editable in this stage; they come from the patch.
+                // The registry still validated the value.
                 break;
         }
     }
