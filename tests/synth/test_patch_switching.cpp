@@ -171,3 +171,56 @@ TEST_CASE("a new voice starts at the live parameter value", "[synth][patches][pa
     REQUIRE(peak > 0.0F);
     REQUIRE(peak < 1.0F);
 }
+
+TEST_CASE("changing chord with shared notes stays continuous", "[synth][chords][hot-swap]") {
+    Harness harness;
+
+    drumas::core::Command selectPad = drumas::core::selectPatch(0);
+    harness.render(&selectPad);
+
+    const std::array<std::uint8_t, 3> cMajor{60, 64, 67};
+    drumas::core::Command playC = drumas::core::chordOn(1, cMajor.data(), 3, 0.8F);
+    harness.render(&playC);
+    (void)harness.maxStepOf(80);  // settle past the pad attack
+
+    const float steady = harness.maxStepOf(40);
+
+    // A minor shares C and E with C major: only A is a new voice, the two
+    // shared notes keep their phase and envelope.
+    const std::array<std::uint8_t, 3> aMinor{57, 60, 64};
+    drumas::core::Command playAm = drumas::core::chordOn(2, aMinor.data(), 3, 0.8F);
+    const float switchStep = harness.render(&playAm);
+    const float afterStep = harness.maxStepOf(40);
+
+    // Releasing C major leaves the shared notes sounding for A minor.
+    drumas::core::Command releaseC = drumas::core::chordOff(1);
+    const float releaseStep = harness.render(&releaseC);
+    const float afterRelease = harness.maxStepOf(40);
+
+    INFO("steady " << steady << ", switch " << switchStep << ", after " << afterStep
+                   << ", release " << releaseStep << ", after release " << afterRelease);
+    REQUIRE(switchStep <= steady * 2.0F + 0.02F);
+    REQUIRE(afterStep <= steady * 2.0F + 0.02F);
+    REQUIRE(releaseStep <= steady * 2.0F + 0.02F);
+    REQUIRE(afterRelease <= steady * 2.0F + 0.02F);
+
+    // C and E are still held by A minor after C major is released.
+    bool cHeld = false;
+    bool eHeld = false;
+    bool gHeld = false;
+    for (std::size_t index = 0; index < drumas::synth::VoicePool::kMaxVoices; ++index) {
+        const drumas::synth::SynthVoice& voice = harness.synth.voices().voice(index);
+        if (voice.note() == 60) {
+            cHeld = voice.isHeld();
+        }
+        if (voice.note() == 64) {
+            eHeld = voice.isHeld();
+        }
+        if (voice.note() == 67) {
+            gHeld = voice.isHeld();
+        }
+    }
+    REQUIRE(cHeld);
+    REQUIRE(eHeld);
+    REQUIRE_FALSE(gHeld);
+}

@@ -15,6 +15,7 @@
 #include "PatchFile.h"
 #include "Settings.h"
 #include "bridge/ChainMirror.h"
+#include "bridge/ChordExpander.h"
 #include "bridge/CommandSink.h"
 #include "bridge/ParameterMirror.h"
 #include "engine/AudioEngine.h"
@@ -111,8 +112,8 @@ public:
     Q_INVOKABLE bool setEffectMix(int slot, double mix);
     Q_INVOKABLE bool setEffectParameter(int slot, qulonglong id, double value);
     Q_INVOKABLE void selectEffectSlot(int slot);
-    /// Piano notes share the chord reference counts, so a note held by both a
-    /// chord and the keyboard is only released once.
+    /// Piano notes are ungrouped voices: they reference-count repeated presses
+    /// among themselves and never retrigger or release a held chord voice.
     Q_INVOKABLE bool noteOn(int note, double velocity = 0.8);
     Q_INVOKABLE bool noteOff(int note);
     Q_INVOKABLE void setPianoOctave(int octave);
@@ -177,6 +178,7 @@ private:
     bool commandSinkInjected_ = false;
     bridge::ParameterMirror parameterMirror_;
     bridge::ChainMirror chainMirror_;
+    bridge::ChordExpander chordExpander_;
     ParameterModel parameterModel_;
     PatchModel patchModel_;
     ChainModel chainModel_;
@@ -194,8 +196,6 @@ private:
     double outputPeak_ = 0.0;
     int selectedEffectSlot_ = 0;
     int pianoOctave_ = 4;
-    std::array<std::array<std::uint8_t, 4>, 7> chordNotes_{};
-    std::array<std::uint8_t, 7> chordNoteCounts_{};
     std::array<bool, 7> chordHeld_{};
     std::array<std::uint8_t, 128> noteRefCounts_{};
     bool initialized_ = false;

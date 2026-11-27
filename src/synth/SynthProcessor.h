@@ -175,6 +175,18 @@ public:
             case core::CommandType::NoteOff:
                 pool_.noteOff(command.note);
                 break;
+            case core::CommandType::ChordOn: {
+                std::array<std::uint8_t, core::kMaxChordNotes> notes{};
+                for (std::uint8_t index = 0; index < command.noteCount; ++index) {
+                    notes[index] = core::chordNoteAt(command.notes, index);
+                }
+                (void)pool_.chordOn(command.group, notes.data(), command.noteCount,
+                                    command.value, currentPatch_, live_);
+                break;
+            }
+            case core::CommandType::ChordOff:
+                pool_.chordOff(command.group);
+                break;
             case core::CommandType::AllNotesOff:
                 pool_.allNotesOff();
                 break;

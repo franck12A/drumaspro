@@ -35,17 +35,22 @@ public:
 
 }  // namespace
 
-TEST_CASE("chord expansion enqueues every note as one command batch", "[bridge][chord]") {
+TEST_CASE("a chord travels as one ChordOn with every note and its group", "[bridge][chord]") {
     TestCommandSink sink;
     drumas::bridge::ChordExpander expander;
 
     REQUIRE(expander.noteOn(
-        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major, 0, 4}, 0.75F));
-    REQUIRE(sink.count == 3);
-    REQUIRE(sink.commands[0].note == 60);
-    REQUIRE(sink.commands[1].note == 64);
-    REQUIRE(sink.commands[2].note == 67);
-    REQUIRE(sink.commands[0].value == 0.75F);
+        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major, 0, 4}, 0.75F,
+        3));
+    REQUIRE(sink.count == 1);
+    const drumas::core::Command& command = sink.commands[0];
+    REQUIRE(command.type == drumas::core::CommandType::ChordOn);
+    REQUIRE(command.group == 3);
+    REQUIRE(command.noteCount == 3);
+    REQUIRE(drumas::core::chordNoteAt(command.notes, 0) == 60);
+    REQUIRE(drumas::core::chordNoteAt(command.notes, 1) == 64);
+    REQUIRE(drumas::core::chordNoteAt(command.notes, 2) == 67);
+    REQUIRE(command.value == 0.75F);
     REQUIRE(expander.droppedChords() == 0);
 }
 
@@ -54,7 +59,8 @@ TEST_CASE("chord expansion does not allocate", "[bridge][realtime]") {
     drumas::bridge::ChordExpander expander;
     drumas::test::resetAllocationCount();
     const bool enqueued = expander.noteOn(
-        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major7, 0, 4});
+        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major7, 0, 4},
+        1.0F, 1);
     const std::size_t allocations = drumas::test::allocationCount();
 
     REQUIRE(enqueued);
@@ -64,25 +70,36 @@ TEST_CASE("chord expansion does not allocate", "[bridge][realtime]") {
 TEST_CASE("a chord is wholly rejected and counted when queue capacity is insufficient",
           "[bridge][chord]") {
     TestCommandSink sink;
-    sink.count = 6;
+    sink.capacity = 0;
     drumas::bridge::ChordExpander expander;
 
     REQUIRE_FALSE(expander.noteOn(
-        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major7, 0, 4}));
-    REQUIRE(sink.count == 6);
+        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major7, 0, 4},
+        1.0F, 1));
+    REQUIRE(sink.count == 0);
     REQUIRE(expander.droppedChords() == 1);
 }
 
-TEST_CASE("chord release is also enqueued as one note-off batch", "[bridge][chord]") {
+TEST_CASE("a chord with an invalid group is rejected without sending notes",
+          "[bridge][chord]") {
     TestCommandSink sink;
     drumas::bridge::ChordExpander expander;
 
-    REQUIRE(expander.noteOff(
-        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major, 0, 4}));
-    REQUIRE(sink.count == 3);
-    for (std::size_t index = 0; index < sink.count; ++index) {
-        REQUIRE(sink.commands[index].type == drumas::core::CommandType::NoteOff);
-    }
+    REQUIRE_FALSE(expander.noteOn(
+        sink, {drumas::music::PitchClass::C, drumas::music::ChordQuality::Major, 0, 4},
+        1.0F, 0));
+    REQUIRE(sink.count == 0);
+    REQUIRE(expander.droppedChords() == 1);
+}
+
+TEST_CASE("chord release is a single ChordOff for that group", "[bridge][chord]") {
+    TestCommandSink sink;
+    drumas::bridge::ChordExpander expander;
+
+    REQUIRE(expander.noteOff(sink, 2));
+    REQUIRE(sink.count == 1);
+    REQUIRE(sink.commands[0].type == drumas::core::CommandType::ChordOff);
+    REQUIRE(sink.commands[0].group == 2);
 }
 
 TEST_CASE("parameter mirror clamps values and rejects unknown or NaN inputs",

@@ -102,10 +102,12 @@ pulido visual.
   alimentan los componentes QML. Un cambio de efecto prepara el objeto en el
   hilo de control antes de transferir su propiedad por la cola; sus valores por
   defecto se copian al espejo para que el inspector muestre lo que suena.
-- Un acorde se encola entero o no se encola. Si no hay capacidad para todas sus
-  notas, se descarta y se cuenta; la UI no bloquea el hilo de audio. Las notas
-  compartidas entre acordes mantenidos se contabilizan: liberar un acorde no
-  corta una nota que otro sigue usando, y la nota común no se reataca.
+- Un acorde se envía como un solo comando `ChordOn` con su `group`; el motor
+  asigna todas las voces antes de arrancar ninguna. Si la cola no tiene
+  capacidad se descarta el acorde entero (y se cuenta), nunca medio acorde; la
+  UI no bloquea el hilo de audio. Las notas compartidas entre acordes se
+  resuelven en el motor con una máscara de grupos: la nota común no se reataca
+  y `ChordOff` solo retira la reclamación del pad pulsado.
 
 El tema centraliza colores, tipografía, dimensiones y espaciado en
 `Theme.qml`; el control `AMBER` alterna entre la paleta predeterminada y la

@@ -39,6 +39,10 @@ public:
     static constexpr float kOutputGain = 0.20F;
     static constexpr float kPi = 3.14159265358979323846F;
 
+    /// A voice restarted while it was still sounding (retrigger or steal) fades
+    /// in over this time instead of jumping to full level.
+    static constexpr float kFadeInMs = 2.0F;
+
     /// Setup thread.
     void prepare(double sampleRate) noexcept {
         sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
@@ -82,6 +86,9 @@ public:
         age_ = 0;
         held_ = false;
         unisonCount_ = 1;
+        groupMask_ = 0;
+        fadeGain_ = 1.0F;
+        fadeStep_ = 0.0F;
         noiseState_ = 0x9E3779B9U;
     }
 
@@ -90,7 +97,7 @@ public:
     /// when the voice was silent: a stolen voice keeps its phase and glides to
     /// the new pitch instead of clicking.
     void noteOn(std::uint8_t note, float velocity, std::uint64_t age, const Patch& patch,
-                const LiveParameters& live) noexcept {
+                const LiveParameters& live, std::uint32_t groupMask = 0) noexcept {
         const bool wasIdle = !ampEnvelope_.isActive();
 
         patch_ = patch;
@@ -98,6 +105,16 @@ public:
         age_ = age;
         velocity_ = std::clamp(velocity, 0.0F, 1.0F);
         held_ = true;
+        groupMask_ = groupMask;
+        if (wasIdle) {
+            fadeGain_ = 1.0F;
+            fadeStep_ = 0.0F;
+        } else {
+            // Stolen or retriggered voice: ramp the new sound in so the onset
+            // never steps.
+            fadeGain_ = 0.0F;
+            fadeStep_ = 1.0F / std::max(1.0F, kFadeInMs * 0.001F * static_cast<float>(sampleRate_));
+        }
         unisonCount_ = std::clamp(patch.unisonVoices, 1, kMaxUnison);
 
         const float baseFrequency = core::noteToFrequency(note);
@@ -188,8 +205,19 @@ public:
     /// Audio thread.
     void noteOff() noexcept {
         held_ = false;
+        groupMask_ = 0;
         ampEnvelope_.noteOff();
         filterEnvelope_.noteOff();
+    }
+
+    /// Audio thread. A chord may hold a note that another chord already holds:
+    /// the voice keeps a bit per group and only releases when the last one lets
+    /// go.
+    void addGroup(std::uint32_t mask) noexcept { groupMask_ |= mask; }
+    void clearGroup(std::uint32_t mask) noexcept { groupMask_ &= ~mask; }
+    [[nodiscard]] std::uint32_t groupMask() const noexcept { return groupMask_; }
+    [[nodiscard]] bool isReleasing() const noexcept {
+        return ampEnvelope_.stage() == EnvelopeStage::Release;
     }
 
     /// Audio thread. Live overrides from the processor: the captured patch stays
@@ -271,7 +299,11 @@ public:
 
             filter_.processStereo(mixLeft, mixRight);
 
-            const float gain = amp * velocityGain_.getNextValue() * kOutputGain;
+            float gain = amp * velocityGain_.getNextValue() * kOutputGain;
+            if (fadeGain_ < 1.0F) {
+                gain *= fadeGain_;
+                fadeGain_ = std::min(1.0F, fadeGain_ + fadeStep_);
+            }
             left[frame] += mixLeft * gain;
             right[frame] += mixRight * gain;
         }
@@ -333,6 +365,9 @@ private:
     float velocity_ = 0.0F;
     std::uint64_t age_ = 0;
     bool held_ = false;
+    std::uint32_t groupMask_ = 0;
+    float fadeGain_ = 1.0F;
+    float fadeStep_ = 0.0F;
     std::uint32_t noiseState_ = 0x9E3779B9U;
     double sampleRate_ = 48000.0;
 };

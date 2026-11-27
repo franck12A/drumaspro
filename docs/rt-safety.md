@@ -35,7 +35,7 @@ el código cumple y cómo se comprueba.
 | `fx::EffectChain` | `prepare`, constructor/destructor | `process`, `reset`, `swapEffect`, `setBypass`, `setMix`, `setParameter`, `takeRetired` |
 | `fx::IEffect` | `prepare` | `process`, `reset`, `setParameter`, `latencySamples`, `tailSamples` |
 | `fx::MasterLimiter` | `prepare` | `process`, `reset`, `latencySamples` |
-| `VoicePool` | `prepare` | `noteOn`, `noteOff`, `renderAdd`, `setLiveParameters` |
+| `VoicePool` | `prepare` | `noteOn`, `noteOff`, `chordOn`, `chordOff`, `renderAdd`, `setLiveParameters` |
 | `SynthVoice` | `prepare`, `reset` | `noteOn`, `noteOff`, `setLiveParameters`, `renderAdd` |
 | `BandLimitedOscillator` | `prepare` | `setFrequency`, `setWaveform`, `setPulseWidth`, `nextSample` |
 | `ResonantLowPassFilter` | `prepare`, `reset` | `setCutoff`, `setResonance`, `processStereo` |
@@ -71,9 +71,10 @@ Después se resetea el procesador y se libera el dispositivo. No se debe llamar 
   audio, o desde el hilo de control con el stream parado.
 - **UI → motor**: `EngineBridge` crea comandos y los publica por la misma cola
   SPSC; el hilo de UI nunca accede directamente al callback ni espera por él.
-  Los acordes convierten sus notas en un batch todo-o-nada, de modo que una
-  cola sin capacidad descarta el acorde entero y aumenta el contador de acordes
-  descartados. El refresco de estado corre a 40 Hz y lee contadores atómicos.
+  Un acorde viaja como **un solo comando** `ChordOn` (todas sus notas y su
+  `group`); una cola sin capacidad descarta el acorde entero y aumenta el
+  contador de acordes descartados, nunca deja medio acorde. `ChordOff` libera
+  solo ese grupo. El refresco de estado corre a 40 Hz y lee contadores atómicos.
 - **Motor sin Qt**: `core`, `fx`, `synth`, `engine` y `music` no incluyen Qt ni
   lo requieren para compilar. `engine_has_no_qt` recorre las fuentes y
   comprueba las interfaces de enlace en cada configuración de CTest.

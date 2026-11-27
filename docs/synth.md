@@ -54,6 +54,19 @@ La calibración de nivel está pensada para que un acorde de 4 notas no llegue
 al limitador. En las pruebas offline, el pico de un acorde de cuatro notas con
 Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
 
+## Acordes y grupos de voces
+
+Un acorde llega al motor como **un único comando** (`ChordOn`) con hasta cuatro
+notas empaquetadas y un `group` (1..31) que identifica el pad. El pool reserva
+todas las voces antes de arrancar ninguna, así que el acorde es atómico y todas
+sus notas empiezan en la misma muestra. Cada voz guarda una máscara de grupos:
+si una nota ya está mantenida por otro acorde (C en C mayor y en A menor), el
+nuevo acorde se une a esa voz en lugar de reatacarla, y `ChordOff` solo retira
+su bit. La nota deja de sonar cuando la suelta el último acorde que la
+necesitaba. Las notas sueltas del piano y de la consola no pertenecen a ningún
+grupo y nunca reutilizan una voz de acorde. Ver
+[ADR 0015](adr/0015-chord-groups-and-voice-stealing.md).
+
 ## Cambio de patch y parámetros en vivo
 
 - `SelectPatch` cambia el patch de las **notas siguientes**. Las voces que ya

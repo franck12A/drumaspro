@@ -1,25 +1,45 @@
-// Expands a music chord into one all-or-nothing batch of MIDI note commands.
+// Turns a music chord into one ChordOn/ChordOff command.
+//
+// A chord travels as a single event, so the engine allocates every voice before
+// starting any note: the chord is complete and sample-aligned, and a queue
+// without capacity drops the whole chord instead of half of it. The group id
+// identifies the pressed pad; ChordOff releases exactly that chord and leaves
+// notes shared with another held chord sounding.
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <cstdint>
-#include <span>
 
 #include "bridge/CommandSink.h"
+#include "core/AudioTypes.h"
 #include "music/Chord.h"
 
 namespace drumas::bridge {
 
 class ChordExpander {
 public:
-    [[nodiscard]] bool noteOn(CommandSink& sink, const music::Chord& chord,
-                              float velocity = 1.0F) noexcept {
-        return enqueue(sink, chord, velocity, true);
+    [[nodiscard]] bool noteOn(CommandSink& sink, const music::Chord& chord, float velocity,
+                              std::uint8_t group) noexcept {
+        const auto midiNotes = music::chordToMidiNotes(chord);
+        if (!midiNotes.has_value() || midiNotes->count == 0 ||
+            midiNotes->count > core::kMaxChordNotes || group == 0 ||
+            group > core::kMaxChordGroup) {
+            droppedChords_.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
+        if (!sink.push(core::chordOn(group, midiNotes->notes.data(), midiNotes->count,
+                                     velocity))) {
+            droppedChords_.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
+        return true;
     }
 
-    [[nodiscard]] bool noteOff(CommandSink& sink, const music::Chord& chord) noexcept {
-        return enqueue(sink, chord, 0.0F, false);
+    [[nodiscard]] bool noteOff(CommandSink& sink, std::uint8_t group) noexcept {
+        if (group == 0 || group > core::kMaxChordGroup) {
+            return false;
+        }
+        return sink.push(core::chordOff(group));
     }
 
     [[nodiscard]] std::uint64_t droppedChords() const noexcept {
@@ -27,27 +47,6 @@ public:
     }
 
 private:
-    [[nodiscard]] bool enqueue(CommandSink& sink, const music::Chord& chord, float velocity,
-                               bool noteOn) noexcept {
-        const auto midiNotes = music::chordToMidiNotes(chord);
-        if (!midiNotes.has_value()) {
-            droppedChords_.fetch_add(1, std::memory_order_relaxed);
-            return false;
-        }
-
-        std::array<core::Command, 4> commands{};
-        for (std::size_t index = 0; index < midiNotes->count; ++index) {
-            commands[index] = noteOn ? core::noteOn(midiNotes->notes[index], velocity)
-                                     : core::noteOff(midiNotes->notes[index]);
-        }
-
-        if (!sink.pushBatch(std::span<const core::Command>(commands.data(), midiNotes->count))) {
-            droppedChords_.fetch_add(1, std::memory_order_relaxed);
-            return false;
-        }
-        return true;
-    }
-
     std::atomic<std::uint64_t> droppedChords_{0};
 };
 

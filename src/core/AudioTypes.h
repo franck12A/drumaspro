@@ -39,6 +39,11 @@ enum class CommandType : std::uint8_t {
     None = 0,
     NoteOn,
     NoteOff,
+    // A whole chord as one event: the pool allocates every note before any of
+    // them starts, so a chord is always complete and sample-aligned. `group`
+    // identifies the pressed pad so ChordOff releases exactly that chord.
+    ChordOn,
+    ChordOff,
     SetParam,
     SelectPatch,
     AllNotesOff,
@@ -57,6 +62,12 @@ enum class CommandType : std::uint8_t {
 /// One event, small enough to travel through a lock-free queue by value.
 /// Trivially copyable is a hard requirement of core::SpscQueue. `param` is a
 /// stable 32-bit id from core::ParameterRegistry; 0 means "no parameter".
+/// A chord never has more than four notes (triads and seventh chords, with or
+/// without an inverted voicing).
+inline constexpr std::uint8_t kMaxChordNotes = 4;
+/// Group 0 means "not part of a chord" (piano keys, console notes).
+inline constexpr std::uint8_t kMaxChordGroup = 31;
+
 struct Command {
     CommandType type = CommandType::None;
     ParameterId param = kInvalidParameterId;
@@ -67,6 +78,12 @@ struct Command {
     std::uint8_t slot = 0;
     /// Opaque effect pointer for SwapEffect; zero for every other command.
     std::uintptr_t object = 0;
+    /// Chord group (1..kMaxChordGroup); 0 for ungrouped notes.
+    std::uint8_t group = 0;
+    /// Notes in a ChordOn, one byte each, low byte first.
+    std::uint32_t notes = 0;
+    /// Number of valid notes in `notes` for ChordOn.
+    std::uint8_t noteCount = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<Command>,
@@ -96,6 +113,40 @@ static_assert(std::is_trivially_copyable_v<Command>,
 [[nodiscard]] constexpr Command selectPatchData(std::uintptr_t patch) noexcept {
     return Command{CommandType::SelectPatchData, kInvalidParameterId, 0, 0, 0.0F, 0,
                    patch};
+}
+
+/// Packs up to kMaxChordNotes MIDI notes into a ChordOn payload. A longer list
+/// is rejected by the caller, never cut into a half chord.
+[[nodiscard]] constexpr std::uint32_t packChordPayload(const std::uint8_t* notes,
+                                                       std::size_t count) noexcept {
+    std::uint32_t packed = 0;
+    const std::size_t limit = count > kMaxChordNotes ? kMaxChordNotes : count;
+    for (std::size_t index = 0; index < limit; ++index) {
+        packed |= static_cast<std::uint32_t>(notes[index]) << (8U * index);
+    }
+    return packed;
+}
+
+[[nodiscard]] constexpr std::uint8_t chordNoteAt(std::uint32_t packed,
+                                                 std::uint8_t index) noexcept {
+    return static_cast<std::uint8_t>((packed >> (8U * index)) & 0xFFU);
+}
+
+/// Starts a whole chord in one command. `group` must be 1..kMaxChordGroup; the
+/// audio thread allocates all notes before starting any of them.
+[[nodiscard]] constexpr Command chordOn(std::uint8_t group, const std::uint8_t* notes,
+                                        std::size_t count,
+                                        float velocity = 1.0F) noexcept {
+    return Command{CommandType::ChordOn, kInvalidParameterId, 0, 0, velocity, 0, 0, group,
+                   packChordPayload(notes, count),
+                   static_cast<std::uint8_t>(count > kMaxChordNotes ? kMaxChordNotes
+                                                                   : count)};
+}
+
+/// Releases every voice still owned by `group`. Notes shared with another held
+/// chord keep sounding: only this group's claim is dropped.
+[[nodiscard]] constexpr Command chordOff(std::uint8_t group) noexcept {
+    return Command{CommandType::ChordOff, kInvalidParameterId, 0, 0, 0.0F, 0, 0, group, 0, 0};
 }
 
 [[nodiscard]] constexpr Command allNotesOff() noexcept {

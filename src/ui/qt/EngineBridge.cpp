@@ -104,7 +104,6 @@ void EngineBridge::shutdown() {
         // The engine reset its voices: forget which chords were held so a
         // restart does not leave the note reference counts stale.
         chordHeld_.fill(false);
-        chordNoteCounts_.fill(0);
         noteRefCounts_.fill(0);
         if (latchedRow_ >= 0) {
             latchedRow_ = -1;
@@ -762,35 +761,15 @@ bool EngineBridge::playChord(int row, double velocity) {
     if (!chordModel_.chordAt(row, chord) || chordHeld_[static_cast<std::size_t>(row)]) {
         return true;
     }
-    const auto midiNotes = music::chordToMidiNotes(chord);
-    if (!midiNotes.has_value() || midiNotes->count > chordNotes_.front().size()) {
-        return false;
-    }
 
-    // Only send note-on for notes that no other held chord is already playing.
-    // Without this, a shared note would retrigger and its release would cut the
-    // chord that still needs it.
-    std::array<core::Command, 4> commands{};
-    std::size_t commandCount = 0;
-    for (std::size_t index = 0; index < midiNotes->count; ++index) {
-        const std::uint8_t note = midiNotes->notes[index];
-        if (noteRefCounts_[note] == 0) {
-            commands[commandCount++] = core::noteOn(note, static_cast<float>(velocity));
-        }
-    }
-    if (commandCount > 0 &&
-        !commandSink_->pushBatch(
-            std::span<const core::Command>(commands.data(), commandCount))) {
+    // One ChordOn: the engine allocates every voice before starting any note,
+    // and a note already held by another chord is joined, not retriggered.
+    const auto group = static_cast<std::uint8_t>(row + 1);
+    if (!chordExpander_.noteOn(*commandSink_, chord, static_cast<float>(velocity), group)) {
         return false;
     }
 
     const auto slot = static_cast<std::size_t>(row);
-    for (std::size_t index = 0; index < midiNotes->count; ++index) {
-        const std::uint8_t note = midiNotes->notes[index];
-        ++noteRefCounts_[note];
-        chordNotes_[slot][index] = note;
-    }
-    chordNoteCounts_[slot] = midiNotes->count;
     chordHeld_[slot] = true;
     if (settings_.latch) {
         latchedRow_ = row;
@@ -822,29 +801,12 @@ bool EngineBridge::releaseChordInternal(int row) {
         return true;
     }
 
-    std::array<core::Command, 4> commands{};
-    std::size_t commandCount = 0;
-    for (std::size_t index = 0; index < chordNoteCounts_[slot]; ++index) {
-        const std::uint8_t note = chordNotes_[slot][index];
-        if (noteRefCounts_[note] == 0) {
-            continue;
-        }
-        --noteRefCounts_[note];
-        if (noteRefCounts_[note] == 0) {
-            commands[commandCount++] = core::noteOff(note);
-        }
-    }
-    if (commandCount > 0 &&
-        !commandSink_->pushBatch(
-            std::span<const core::Command>(commands.data(), commandCount))) {
-        // Put the references back so a later release still sends the note-off.
-        for (std::size_t index = 0; index < chordNoteCounts_[slot]; ++index) {
-            ++noteRefCounts_[chordNotes_[slot][index]];
-        }
+    // ChordOff only drops this pad's claim: notes still held by another chord
+    // keep sounding, and the audio thread decides which voices release.
+    if (!chordExpander_.noteOff(*commandSink_, static_cast<std::uint8_t>(row + 1))) {
         return false;
     }
     chordHeld_[slot] = false;
-    chordNoteCounts_[slot] = 0;
     return true;
 }
 

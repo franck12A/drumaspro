@@ -206,31 +206,40 @@ private Q_SLOTS:
         QCOMPARE(bridge.effectParameterModel()->count(), 4);
     }
 
-    void overlappingChordsShareNotesWithoutRetriggering() {
+    void overlappingChordsSendWholeGroupsAndReleaseOnlyTheirOwn() {
         RecordingCommandSink sink;
         drumas::ui::EngineBridge bridge(nullptr, &sink);
 
-        QVERIFY(bridge.playChord(0));  // C major: C4 E4 G4
-        QVERIFY(bridge.playChord(2));  // E minor: E4 G4 B4
+        QVERIFY(bridge.playChord(0));  // C major: C4 E4 G4, group 1
+        QVERIFY(bridge.playChord(2));  // E minor: E4 G4 B4, group 3
         QCOMPARE(sink.batches.size(), std::size_t{2});
         const auto& secondOn = sink.batches.back();
+        // One command for the whole chord: the engine joins the shared notes
+        // instead of retriggering them.
         QCOMPARE(secondOn.size(), std::size_t{1});
-        QCOMPARE(secondOn.front().type, drumas::core::CommandType::NoteOn);
-        QCOMPARE(static_cast<int>(secondOn.front().note), 71);
+        QCOMPARE(secondOn.front().type, drumas::core::CommandType::ChordOn);
+        QCOMPARE(static_cast<int>(secondOn.front().group), 3);
+        QCOMPARE(static_cast<int>(secondOn.front().noteCount), 3);
+        QCOMPARE(static_cast<int>(
+                     drumas::core::chordNoteAt(secondOn.front().notes, 0)), 64);
+        QCOMPARE(static_cast<int>(
+                     drumas::core::chordNoteAt(secondOn.front().notes, 1)), 67);
+        QCOMPARE(static_cast<int>(
+                     drumas::core::chordNoteAt(secondOn.front().notes, 2)), 71);
 
-        // Releasing C major must only release the note no other chord holds.
+        // Releasing C major only drops group 1 (the shared C and E survive in
+        // the audio thread, which owns the voice masks).
         QVERIFY(bridge.releaseChord(0));
         const auto& releaseC = sink.batches.back();
         QCOMPARE(releaseC.size(), std::size_t{1});
-        QCOMPARE(releaseC.front().type, drumas::core::CommandType::NoteOff);
-        QCOMPARE(static_cast<int>(releaseC.front().note), 60);
+        QCOMPARE(releaseC.front().type, drumas::core::CommandType::ChordOff);
+        QCOMPARE(static_cast<int>(releaseC.front().group), 1);
 
         QVERIFY(bridge.releaseChord(2));
         const auto& releaseEm = sink.batches.back();
-        QCOMPARE(releaseEm.size(), std::size_t{3});
-        QCOMPARE(static_cast<int>(releaseEm[0].note), 64);
-        QCOMPARE(static_cast<int>(releaseEm[1].note), 67);
-        QCOMPARE(static_cast<int>(releaseEm[2].note), 71);
+        QCOMPARE(releaseEm.size(), std::size_t{1});
+        QCOMPARE(releaseEm.front().type, drumas::core::CommandType::ChordOff);
+        QCOMPARE(static_cast<int>(releaseEm.front().group), 3);
     }
 
     void computerKeyboardMapsOctavesAndMidiLimits() {
@@ -269,7 +278,7 @@ private Q_SLOTS:
         QVERIFY(bridge.noteOff(127));
     }
 
-    void pianoNotesShareReferencesWithChords() {
+    void pianoNotesKeepTheirOwnReferencesSeparateFromChords() {
         RecordingCommandSink sink;
         drumas::ui::EngineBridge bridge(nullptr, &sink);
 
@@ -284,16 +293,21 @@ private Q_SLOTS:
         QCOMPARE(sink.batches.back().front().type,
                  drumas::core::CommandType::NoteOff);
 
+        // Chords no longer touch the piano reference counts: the engine keeps
+        // a chord voice and a piano voice for the same note independently.
         sink.batches.clear();
         QVERIFY(bridge.playChord(0));  // C4 E4 G4
-        sink.batches.clear();
-        QVERIFY(bridge.noteOn(60, 0.5));
-        QCOMPARE(sink.batches.size(), std::size_t{0});
-        QVERIFY(bridge.noteOff(60));
-        QCOMPARE(sink.batches.size(), std::size_t{0});
-        QVERIFY(bridge.releaseChord(0));
         QCOMPARE(sink.batches.size(), std::size_t{1});
-        QCOMPARE(sink.batches.back().size(), std::size_t{3});
+        QVERIFY(bridge.noteOn(60, 0.5));
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOn);
+        QVERIFY(bridge.noteOff(60));
+        QCOMPARE(sink.batches.size(), std::size_t{3});
+        QVERIFY(bridge.releaseChord(0));
+        QCOMPARE(sink.batches.size(), std::size_t{4});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::ChordOff);
     }
 
     void pianoViewPlaysNotesAndComputerKeysFollowOctave() {
@@ -670,14 +684,17 @@ private Q_SLOTS:
             QCOMPARE(sink.batches.size(), std::size_t{1});
             QVERIFY(button->property("chordActive").toBool());
             const auto buttonPressBatch = sink.batches.back();
-            QCOMPARE(buttonPressBatch.size(), std::size_t{3});
-            QCOMPARE(buttonPressBatch.front().type, drumas::core::CommandType::NoteOn);
+            QCOMPARE(buttonPressBatch.size(), std::size_t{1});
+            QCOMPARE(buttonPressBatch.front().type,
+                     drumas::core::CommandType::ChordOn);
+            QCOMPARE(static_cast<int>(buttonPressBatch.front().noteCount), 3);
             QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
             QCOMPARE(sink.batches.size(), std::size_t{2});
             QVERIFY(!button->property("chordActive").toBool());
             const auto buttonReleaseBatch = sink.batches.back();
-            QCOMPARE(buttonReleaseBatch.size(), std::size_t{3});
-            QCOMPARE(buttonReleaseBatch.front().type, drumas::core::CommandType::NoteOff);
+            QCOMPARE(buttonReleaseBatch.size(), std::size_t{1});
+            QCOMPARE(buttonReleaseBatch.front().type,
+                     drumas::core::CommandType::ChordOff);
 
             keyboardFocus->forceActiveFocus();
             QVERIFY(window->activeFocusItem() == keyboardFocus);
@@ -725,7 +742,8 @@ private Q_SLOTS:
         QCOMPARE(sink.batches.size(), std::size_t{1});
         browser->forceActiveFocus();
         QCOMPARE(sink.batches.size(), std::size_t{2});
-        QVERIFY(sink.batches.back().front().type == drumas::core::CommandType::NoteOff);
+        QVERIFY(sink.batches.back().front().type ==
+                drumas::core::CommandType::ChordOff);
     }
 
     void fullFrameRenderFitsSixtyFps() {
@@ -916,11 +934,17 @@ private Q_SLOTS:
         QVERIFY(bridge.setChordSlot(0, true, 2, 6, 0, 3));  // D minor 7, root D3
         QVERIFY(bridge.playChord(0));
         const auto& manual = sink.batches.back();
-        QCOMPARE(manual.size(), std::size_t{4});
-        QCOMPARE(static_cast<int>(manual[0].note), 50);
-        QCOMPARE(static_cast<int>(manual[1].note), 53);
-        QCOMPARE(static_cast<int>(manual[2].note), 57);
-        QCOMPARE(static_cast<int>(manual[3].note), 60);
+        QCOMPARE(manual.size(), std::size_t{1});
+        QCOMPARE(manual.front().type, drumas::core::CommandType::ChordOn);
+        QCOMPARE(static_cast<int>(manual.front().noteCount), 4);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(manual.front().notes, 0)),
+                 50);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(manual.front().notes, 1)),
+                 53);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(manual.front().notes, 2)),
+                 57);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(manual.front().notes, 3)),
+                 60);
         QVERIFY(bridge.releaseChord(0));
         QCOMPARE(bridge.chordSlot(0).value(QStringLiteral("manual")).toBool(), true);
 
@@ -929,16 +953,21 @@ private Q_SLOTS:
 
         QVERIFY(bridge.resetChordSlot(0));
         QVERIFY(bridge.playChord(0));
-        QCOMPARE(sink.batches.back().size(), std::size_t{3});
-        QCOMPARE(static_cast<int>(sink.batches.back()[0].note), 60);
+        QCOMPARE(sink.batches.back().size(), std::size_t{1});
+        QCOMPARE(static_cast<int>(sink.batches.back().front().noteCount), 3);
+        QCOMPARE(static_cast<int>(
+                     drumas::core::chordNoteAt(sink.batches.back().front().notes, 0)), 60);
         QVERIFY(bridge.releaseChord(0));
 
         bridge.setSevenths(true);
         QVERIFY(bridge.playChord(0));
         const auto& seventh = sink.batches.back();
-        QCOMPARE(seventh.size(), std::size_t{4});
-        QCOMPARE(static_cast<int>(seventh[0].note), 60);
-        QCOMPARE(static_cast<int>(seventh[3].note), 71);
+        QCOMPARE(seventh.size(), std::size_t{1});
+        QCOMPARE(static_cast<int>(seventh.front().noteCount), 4);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(seventh.front().notes, 0)),
+                 60);
+        QCOMPARE(static_cast<int>(drumas::core::chordNoteAt(seventh.front().notes, 3)),
+                 71);
         QVERIFY(bridge.releaseChord(0));
 
         // The setting survives a fresh bridge reading the persisted file.
@@ -969,17 +998,17 @@ private Q_SLOTS:
         QCOMPARE(bridge.latchedRow(), 2);
         QCOMPARE(sink.batches.size(), std::size_t{2});
         QCOMPARE(sink.batches.front().front().type,
-                 drumas::core::CommandType::NoteOff);
+                 drumas::core::CommandType::ChordOff);
         QCOMPARE(sink.batches.back().front().type,
-                 drumas::core::CommandType::NoteOn);
+                 drumas::core::CommandType::ChordOn);
 
         sink.batches.clear();
         bridge.setLatchEnabled(false);
         QCOMPARE(bridge.latchedRow(), -1);
         QCOMPARE(sink.batches.size(), std::size_t{1});
         QCOMPARE(sink.batches.back().front().type,
-                 drumas::core::CommandType::NoteOff);
-        QCOMPARE(sink.batches.back().size(), std::size_t{3});
+                 drumas::core::CommandType::ChordOff);
+        QCOMPARE(sink.batches.back().size(), std::size_t{1});
 
         // Velocity curves and knob sensitivity are clamped settings.
         bridge.setVelocityCurve(1);
