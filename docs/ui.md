@@ -117,6 +117,37 @@ Los atajos del piano (`A`..`K`, `Z`/`X`) viven en el mismo `Keys` handler que
 las teclas 1–7 y comprueban `activeFocusItem`, así que un selector o un
 `RotarySelector` enfocado conserva sus flechas y no dispara notas.
 
+## Ajustes persistentes
+
+`Settings.cpp` envuelve `QJsonDocument` tras una interfaz propia
+(`SettingsStore`): la UI nunca toca JSON. El archivo vive en
+`%APPDATA%\Drumaspro\settings.json` (variable `DRUMAS_SETTINGS_PATH` para
+pruebas) y lleva `schemaVersion`. La carga trata archivo ausente, vacío,
+truncado o con JSON inválido como "usar defectos"; una versión futura se
+rechaza entera (no se medio aplica) y los campos desconocidos se ignoran. Todos
+los valores se validan: piel en {default, amber, night}, acento 0..5, escala en
+{90,100,110,125}, sensibilidad 50..150, curva de velocity 0..2, octava 0..8,
+tono 0..11 y pads con raíz/calidad/inversión/octava clampeados. La escritura usa
+`QSaveFile` (temporal + rename) para no dejar un archivo a medias.
+
+La escala de UI multiplica la tipografía (no la geometría de los controles): así
+125 % mejora la legibilidad sin romper el encaje a 960×600. El acento es un
+preset global: 0 usa el color propio de la piel y 1..5 son verde, ámbar, hielo,
+violeta y óxido. El tema noche es oscuro con acento fósforo.
+
+Cada pad puede ser `DIATONIC` (sigue la escala y las séptimas) o `MANUAL` (raíz,
+calidad entre las diez de `src/music`, inversión y octava). El clamp de
+`chordToMidiNotes` rechaza voicings fuera de MIDI 0..127 en vez de recortarlos.
+El esquema guarda ocho slots; la UI usa siete y el octavo queda reservado. El
+botón `LATCH` vive en el puente: al activarlo, soltar el pad no envía NoteOff;
+otro acorde libera el anterior, y apagarlo libera el que estuviera sostenido. Los
+LED de los pads siguen el estado real del latch.
+
+El diálogo `SETUP` aplica los cambios en vivo (bindings sobre el puente) y
+muestra la ruta del archivo. El selector de dispositivo de audio y el tamaño de
+buffer aparecen como pendientes: el motor no expone todavía una API segura para
+cambiarlos en caliente, así que no se implementaron a medias.
+
 ## Piano en pantalla y teclado del ordenador
 
 La franja de acordes y el piano comparten sitio: el botón `KEYS` del panel

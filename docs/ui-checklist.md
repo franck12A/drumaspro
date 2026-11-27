@@ -83,6 +83,19 @@ como verificado sin ejecutarlo.
   `OCTAVE` la refleja y la nota limite no supera MIDI 127.
 - [ ] El auto-repeat no dispara notas extra y, al enfocar un selector o al
   perder el foco de la ventana, no quedan notas sonando.
+- [ ] `SETUP` abre el panel con el mismo estilo, cambia piel (default/ámbar/
+  noche), acento, escala tipográfica, sensibilidad, velocity y octava en vivo,
+  y `CLOSE` lo cierra sin dejar el foco bloqueado.
+- [ ] Elegir p. ej. `NIGHT` + acento violeta + 125 % se refleja al instante y
+  se mantiene al reabrir la aplicación; el texto sigue cabiendo a 960×600.
+- [ ] `LATCH` enciende su LED, el pad suena al soltarlo y solo se apaga al
+  pulsar otro acorde o desactivar `LATCH`; no quedan notas colgadas.
+- [ ] Clic derecho en un pad abre su editor; aplicar un voicing manual suena
+  con las notas indicadas, el pad lo marca `MANUAL` y `RESET` vuelve al
+  diatónico. Un voicing fuera de MIDI 0..127 se rechaza.
+- [ ] `SEVENTHS` cambia los siete pads a séptimas y el LCD/nombres lo reflejan.
+- [ ] Tras cerrar y reabrir la app se recuperan piel, acento, escala, última
+  tonalidad/modo/patch, octava y mapeo de pads.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana

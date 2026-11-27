@@ -240,7 +240,9 @@ Item {
         onPositionChanged: {
             if (!pressed || root.maximum <= root.minimum)
                 return
-            const delta = (pressedY - mouse.y) / Theme.knobDragDistance
+            const sensitivity = Math.max(50, engineBridge.knobSensitivity)
+            const distance = Theme.knobDragDistance * 100.0 / sensitivity
+            const delta = (pressedY - mouse.y) / distance
             root.valueEdited(root.valueForNormalized(pressedFraction + delta))
         }
         onWheel: function(wheel) {

@@ -27,6 +27,14 @@ EngineBridge::EngineBridge(QObject* parent, bridge::CommandSink* commandSink)
       chainModel_(this),
       chordModel_(this),
       effectParameterModel_(this) {
+    QString settingsError;
+    settings_ = SettingsStore::load(SettingsStore::path(), &settingsError);
+    if (!settingsError.isEmpty()) {
+        setError(QStringLiteral("Settings: ") + settingsError);
+    }
+    applyChordSettings();
+    pianoOctave_ = settings_.defaultOctave;
+
     chainModel_.setDescription(chainMirror_.snapshot());
     refreshEffectParameterModel();
 
@@ -54,9 +62,15 @@ bool EngineBridge::start() {
         }
         initialized_ = true;
         parameterMirror_.initialize(synth_.parameters());
-        // The engine starts on the default patch, not on the registry defaults:
-        // the UI mirror has to show the values the next note will actually use.
-        applyPatchToMirror(synth::kDefaultPatchIndex);
+        // Restore the last patch if it is still a factory patch; otherwise the
+        // engine keeps its own default. The mirror must show what will sound.
+        int initialPatch = synth::kDefaultPatchIndex;
+        if (settings_.lastPatch >= 0 && settings_.lastPatch < synth::kFactoryPatchCount) {
+            initialPatch = settings_.lastPatch;
+            (void)commandSink_->push(
+                core::selectPatch(static_cast<std::uint8_t>(initialPatch)));
+        }
+        applyPatchToMirror(initialPatch);
     }
     if (!engine_.start()) {
         setError(QString::fromUtf8(engine_.lastError().data(),
@@ -77,6 +91,10 @@ void EngineBridge::shutdown() {
         chordHeld_.fill(false);
         chordNoteCounts_.fill(0);
         noteRefCounts_.fill(0);
+        if (latchedRow_ >= 0) {
+            latchedRow_ = -1;
+            Q_EMIT latchChanged();
+        }
         Q_EMIT statusChanged();
     }
 }
@@ -106,6 +124,8 @@ bool EngineBridge::selectPatch(int index) {
         return false;
     }
     applyPatchToMirror(index);
+    settings_.lastPatch = index;
+    persistSettings();
     return true;
 }
 
@@ -348,6 +368,235 @@ int EngineBridge::midiNoteForSemitone(int semitone) const {
     return std::clamp(note, 0, 127);
 }
 
+double EngineBridge::applyVelocityCurve(double velocity) const {
+    const double clamped = std::clamp(velocity, 0.0, 1.0);
+    switch (settings_.velocityCurve) {
+        case 1: return std::sqrt(clamped);
+        case 2: return clamped * clamped;
+        default: return clamped;
+    }
+}
+
+QStringList EngineBridge::chordQualityNames() const {
+    QStringList names;
+    for (int quality = 0; quality < kChordQualityCount; ++quality) {
+        const std::string_view label =
+            music::intervals(static_cast<music::ChordQuality>(quality)).label;
+        names.append(QString::fromUtf8(label.data(), static_cast<qsizetype>(label.size())));
+    }
+    return names;
+}
+
+QStringList EngineBridge::noteNames() const {
+    QStringList names;
+    constexpr std::array<music::PitchClass, 12> pitchClasses{
+        music::PitchClass::C, music::PitchClass::CSharp, music::PitchClass::D,
+        music::PitchClass::DSharp, music::PitchClass::E, music::PitchClass::F,
+        music::PitchClass::FSharp, music::PitchClass::G, music::PitchClass::GSharp,
+        music::PitchClass::A, music::PitchClass::ASharp, music::PitchClass::B};
+    for (const music::PitchClass pitchClass : pitchClasses) {
+        const std::string_view pitchName = music::name(pitchClass);
+        names.append(
+            QString::fromUtf8(pitchName.data(), static_cast<qsizetype>(pitchName.size())));
+    }
+    return names;
+}
+
+QVariantMap EngineBridge::chordSlot(int row) const {
+    QVariantMap map;
+    if (row < 0 || row >= kChordSlotCount) {
+        return map;
+    }
+    const ChordSlotSetting& slot = settings_.chordSlots[static_cast<std::size_t>(row)];
+    map.insert(QStringLiteral("manual"), slot.manual);
+    map.insert(QStringLiteral("root"), slot.root);
+    map.insert(QStringLiteral("quality"), slot.quality);
+    map.insert(QStringLiteral("inversion"), slot.inversion);
+    map.insert(QStringLiteral("octave"), slot.octave);
+    return map;
+}
+
+bool EngineBridge::setChordSlot(int row, bool manual, int root, int quality,
+                                int inversion, int octave) {
+    if (row < 0 || row >= kChordSlotCount) {
+        return false;
+    }
+    root = std::clamp(root, 0, 11);
+    quality = std::clamp(quality, 0, kChordQualityCount - 1);
+    inversion = std::clamp(inversion, 0, 3);
+    octave = std::clamp(octave, 0, 8);
+
+    constexpr std::array<music::PitchClass, 12> pitchClasses{
+        music::PitchClass::C, music::PitchClass::CSharp, music::PitchClass::D,
+        music::PitchClass::DSharp, music::PitchClass::E, music::PitchClass::F,
+        music::PitchClass::FSharp, music::PitchClass::G, music::PitchClass::GSharp,
+        music::PitchClass::A, music::PitchClass::ASharp, music::PitchClass::B};
+    const music::Chord chord{pitchClasses[static_cast<std::size_t>(root)],
+                             static_cast<music::ChordQuality>(quality),
+                             static_cast<std::uint8_t>(inversion), octave};
+
+    if (manual && !chordModel_.setManualChord(row, chord)) {
+        setError(QStringLiteral("Chord voicing is outside MIDI 0..127"));
+        return false;
+    }
+    if (!manual && !chordModel_.setManualChord(row, std::nullopt)) {
+        return false;
+    }
+
+    ChordSlotSetting& slot = settings_.chordSlots[static_cast<std::size_t>(row)];
+    slot.manual = manual;
+    slot.root = root;
+    slot.quality = quality;
+    slot.inversion = inversion;
+    slot.octave = octave;
+    setError({});
+    persistSettings();
+    Q_EMIT settingsChanged();
+    return true;
+}
+
+bool EngineBridge::resetChordSlot(int row) {
+    if (row < 0 || row >= kChordSlotCount) {
+        return false;
+    }
+    if (!chordModel_.setManualChord(row, std::nullopt)) {
+        return false;
+    }
+    settings_.chordSlots[static_cast<std::size_t>(row)].manual = false;
+    persistSettings();
+    Q_EMIT settingsChanged();
+    return true;
+}
+
+bool EngineBridge::saveSettings() {
+    QString error;
+    if (!SettingsStore::save(settings_, SettingsStore::path(), &error)) {
+        setError(QStringLiteral("Settings: ") + error);
+        return false;
+    }
+    setError({});
+    return true;
+}
+
+QString EngineBridge::settingsPath() const { return SettingsStore::path(); }
+
+void EngineBridge::applyChordSettings() {
+    (void)chordModel_.setScale(settings_.lastKey, settings_.lastScale == 1);
+    (void)chordModel_.setSevenths(settings_.sevenths);
+    constexpr std::array<music::PitchClass, 12> pitchClasses{
+        music::PitchClass::C, music::PitchClass::CSharp, music::PitchClass::D,
+        music::PitchClass::DSharp, music::PitchClass::E, music::PitchClass::F,
+        music::PitchClass::FSharp, music::PitchClass::G, music::PitchClass::GSharp,
+        music::PitchClass::A, music::PitchClass::ASharp, music::PitchClass::B};
+    for (int row = 0; row < 7; ++row) {
+        const ChordSlotSetting& slot = settings_.chordSlots[static_cast<std::size_t>(row)];
+        if (!slot.manual) {
+            (void)chordModel_.setManualChord(row, std::nullopt);
+            continue;
+        }
+        const music::Chord chord{pitchClasses[static_cast<std::size_t>(slot.root)],
+                                 static_cast<music::ChordQuality>(slot.quality),
+                                 static_cast<std::uint8_t>(slot.inversion), slot.octave};
+        if (!chordModel_.setManualChord(row, chord)) {
+            (void)chordModel_.setManualChord(row, std::nullopt);
+            settings_.chordSlots[static_cast<std::size_t>(row)].manual = false;
+        }
+    }
+}
+
+void EngineBridge::persistSettings() { (void)saveSettings(); }
+
+void EngineBridge::setThemeName(const QString& theme) {
+    if (theme != QLatin1String("default") && theme != QLatin1String("amber") &&
+        theme != QLatin1String("night")) {
+        return;
+    }
+    if (settings_.theme == theme) {
+        return;
+    }
+    settings_.theme = theme;
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setAccentPreset(int preset) {
+    const int clamped = std::clamp(preset, 0, kAccentPresetCount - 1);
+    if (clamped == settings_.accentPreset) {
+        return;
+    }
+    settings_.accentPreset = clamped;
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setUiScale(int scale) {
+    if (scale != 90 && scale != 100 && scale != 110 && scale != 125) {
+        return;
+    }
+    if (settings_.uiScale == scale) {
+        return;
+    }
+    settings_.uiScale = scale;
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setKnobSensitivity(int sensitivity) {
+    const int clamped = std::clamp(sensitivity, 50, 150);
+    if (clamped == settings_.knobSensitivity) {
+        return;
+    }
+    settings_.knobSensitivity = clamped;
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setVelocityCurve(int curve) {
+    const int clamped = std::clamp(curve, 0, kVelocityCurveCount - 1);
+    if (clamped == settings_.velocityCurve) {
+        return;
+    }
+    settings_.velocityCurve = clamped;
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setDefaultOctave(int octave) {
+    const int clamped = std::clamp(octave, 0, 8);
+    if (clamped == settings_.defaultOctave) {
+        return;
+    }
+    settings_.defaultOctave = clamped;
+    setPianoOctave(clamped);
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setSevenths(bool sevenths) {
+    if (settings_.sevenths == sevenths) {
+        return;
+    }
+    settings_.sevenths = sevenths;
+    (void)chordModel_.setSevenths(sevenths);
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
+void EngineBridge::setLatchEnabled(bool enabled) {
+    if (settings_.latch == enabled) {
+        return;
+    }
+    settings_.latch = enabled;
+    if (!enabled && latchedRow_ >= 0) {
+        const int previous = latchedRow_;
+        latchedRow_ = -1;
+        (void)releaseChordInternal(previous);
+        Q_EMIT latchChanged();
+    }
+    persistSettings();
+    Q_EMIT settingsChanged();
+}
+
 QString EngineBridge::formatParameterValue(qulonglong id, double value) const {
     const bridge::ParameterSnapshot snapshot = parameterMirror_.snapshot();
     for (std::size_t index = 0; index < snapshot.count; ++index) {
@@ -364,7 +613,13 @@ QString EngineBridge::formatUnitValue(const QString& unit, double value) const {
 }
 
 bool EngineBridge::setChordScale(int tonicSemitones, bool naturalMinor) {
-    return chordModel_.setScale(tonicSemitones, naturalMinor);
+    if (!chordModel_.setScale(tonicSemitones, naturalMinor)) {
+        return false;
+    }
+    settings_.lastKey = tonicSemitones;
+    settings_.lastScale = naturalMinor ? 1 : 0;
+    persistSettings();
+    return true;
 }
 
 bool EngineBridge::playChord(int row, double velocity) {
@@ -372,6 +627,20 @@ bool EngineBridge::playChord(int row, double velocity) {
         row >= static_cast<int>(chordHeld_.size())) {
         return false;
     }
+    // Latch: a new chord replaces the held one before its notes are sent, so
+    // the audio thread always sees at most one latched chord.
+    if (settings_.latch) {
+        if (latchedRow_ == row) {
+            return true;
+        }
+        if (latchedRow_ >= 0) {
+            const int previous = latchedRow_;
+            latchedRow_ = -1;
+            (void)releaseChordInternal(previous);
+            Q_EMIT latchChanged();
+        }
+    }
+
     music::Chord chord;
     if (!chordModel_.chordAt(row, chord) || chordHeld_[static_cast<std::size_t>(row)]) {
         return true;
@@ -406,10 +675,27 @@ bool EngineBridge::playChord(int row, double velocity) {
     }
     chordNoteCounts_[slot] = midiNotes->count;
     chordHeld_[slot] = true;
+    if (settings_.latch) {
+        latchedRow_ = row;
+        Q_EMIT latchChanged();
+    }
     return true;
 }
 
 bool EngineBridge::releaseChord(int row) {
+    if (settings_.latch && row == latchedRow_) {
+        // The pad keeps sounding until another chord is played or latch is off.
+        return true;
+    }
+    const bool released = releaseChordInternal(row);
+    if (released && row == latchedRow_) {
+        latchedRow_ = -1;
+        Q_EMIT latchChanged();
+    }
+    return released;
+}
+
+bool EngineBridge::releaseChordInternal(int row) {
     if ((!initialized_ && !commandSinkInjected_) || row < 0 ||
         row >= static_cast<int>(chordHeld_.size())) {
         return false;

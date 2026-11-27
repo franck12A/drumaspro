@@ -3,68 +3,94 @@ import QtQuick
 
 QtObject {
     property bool amberMode: false
+    property bool nightMode: false
     property bool compactMode: false
+    // 0 = the skin's own accent, 1..5 = fixed presets.
+    property int accentPreset: 0
+    // Typography multiplier from the settings (0.9, 1.0, 1.1, 1.25). Control
+    // geometry stays fixed so 960x600 keeps fitting.
+    property real uiScale: 1.0
+
+    function pick(amber, night, day) {
+        return amberMode ? amber : (nightMode ? night : day)
+    }
+
+    function scaled(size) {
+        return Math.max(1, Math.round(size * uiScale))
+    }
 
     readonly property color clear: "transparent"
-    readonly property color background: amberMode ? "#11100d" : "#bdb7a9"
-    readonly property color panel: amberMode ? "#211d17" : "#cfc9b8"
-    readonly property color panelInset: amberMode ? "#15130f" : "#b8b1a1"
-    readonly property color panelRaised: amberMode ? "#30291e" : "#ded8c9"
-    readonly property color panelLight: amberMode ? "#403728" : "#ebe5d7"
-    readonly property color panelShadow: amberMode ? "#080807" : "#918a7c"
-    readonly property color ink: amberMode ? "#eee5d3" : "#151612"
-    readonly property color mutedInk: amberMode ? "#a99c83" : "#4d4b43"
-    readonly property color edge: amberMode ? "#080807" : "#151612"
-    readonly property color trim: amberMode ? "#514330" : "#5c5a51"
-    readonly property color accent: amberMode ? "#e5aa49" : "#405746"
-    readonly property color accentBright: amberMode ? "#ffd27a" : "#6f8b70"
-    readonly property color sectionFill: amberMode ? "#090908" : "#171815"
+    readonly property color background: pick("#11100d", "#0a0f0c", "#bdb7a9")
+    readonly property color panel: pick("#211d17", "#121a14", "#cfc9b8")
+    readonly property color panelInset: pick("#15130f", "#0b110d", "#b8b1a1")
+    readonly property color panelRaised: pick("#30291e", "#1d271f", "#ded8c9")
+    readonly property color panelLight: pick("#403728", "#2b3a2d", "#ebe5d7")
+    readonly property color panelShadow: pick("#080807", "#040705", "#918a7c")
+    readonly property color ink: pick("#eee5d3", "#dfeee0", "#151612")
+    readonly property color mutedInk: pick("#a99c83", "#93a894", "#4d4b43")
+    readonly property color edge: pick("#080807", "#050806", "#151612")
+    readonly property color trim: pick("#514330", "#33463a", "#5c5a51")
+
+    readonly property color defaultAccent: pick("#e5aa49", "#57d47a", "#405746")
+    readonly property color defaultAccentBright: pick("#ffd27a", "#8cf5a5", "#6f8b70")
+    readonly property var accentBases: ["#4f8a5c", "#c08a33", "#4a7fa8",
+                                        "#7a5aa6", "#b0603f"]
+    readonly property var accentBrights: ["#7fb38c", "#e8b45c", "#78aed6",
+                                          "#a586cf", "#d98a63"]
+    readonly property color accent: accentPreset <= 0
+        ? defaultAccent
+        : accentBases[Math.min(accentPreset, 5) - 1]
+    readonly property color accentBright: accentPreset <= 0
+        ? defaultAccentBright
+        : accentBrights[Math.min(accentPreset, 5) - 1]
+
+    readonly property color sectionFill: pick("#090908", "#060a07", "#171815")
     readonly property color sectionInk: "#f0e9dc"
-    readonly property color lcdFace: amberMode ? "#0a0c08" : "#20271f"
-    readonly property color lcdInk: amberMode ? "#ffd27a" : "#cee0b5"
-    readonly property color lcdMuted: amberMode ? "#a48b61" : "#9ca98b"
-    readonly property color ledOff: amberMode ? "#4d2823" : "#783b35"
+    readonly property color lcdFace: pick("#0a0c08", "#071208", "#20271f")
+    readonly property color lcdInk: pick("#ffd27a", "#8dffab", "#cee0b5")
+    readonly property color lcdMuted: pick("#a48b61", "#5c8a68", "#9ca98b")
+    readonly property color ledOff: pick("#4d2823", "#3a1f1c", "#783b35")
     readonly property color ledOn: "#ed4338"
-    readonly property color ledActive: amberMode ? "#7adb74" : "#4fbf6a"
+    readonly property color ledActive: pick("#7adb74", "#69e08a", "#4fbf6a")
     readonly property color ledBypass: "#d84438"
-    readonly property color ledGlowOn: amberMode ? "#338a32" : "#2f7a3c"
+    readonly property color ledGlowOn: pick("#338a32", "#2f8a4a", "#2f7a3c")
     readonly property color ledGlowBypass: "#8c1f18"
-    readonly property color meterOn: amberMode ? "#e5aa49" : "#405746"
-    readonly property color meterOff: amberMode ? "#493b29" : "#77766b"
-    readonly property color knobFace: amberMode ? "#25231d" : "#343632"
-    readonly property color knobFaceEdge: amberMode ? "#090908" : "#151612"
-    readonly property color knobRidge: amberMode ? "#716044" : "#62635c"
-    readonly property color knobRidgeLight: amberMode ? "#8d7752" : "#7d7e76"
+    readonly property color meterOn: accent
+    readonly property color meterOff: pick("#493b29", "#2c3a2f", "#77766b")
+    readonly property color knobFace: pick("#25231d", "#232923", "#343632")
+    readonly property color knobFaceEdge: pick("#090908", "#060806", "#151612")
+    readonly property color knobRidge: pick("#716044", "#5c705f", "#62635c")
+    readonly property color knobRidgeLight: pick("#8d7752", "#7d9480", "#7d7e76")
     readonly property color knobPointer: "#f5f0e4"
-    readonly property color knobBase: amberMode ? "#544833" : "#e4dece"
-    readonly property color knobBaseLight: amberMode ? "#6b5a40" : "#f6f1e5"
-    readonly property color knobBaseDark: amberMode ? "#332a1e" : "#b9b2a2"
-    readonly property color knobShadow: amberMode ? "#080807" : "#8a8375"
+    readonly property color knobBase: pick("#544833", "#3a4a3c", "#e4dece")
+    readonly property color knobBaseLight: pick("#6b5a40", "#556b56", "#f6f1e5")
+    readonly property color knobBaseDark: pick("#332a1e", "#1d261e", "#b9b2a2")
+    readonly property color knobShadow: pick("#080807", "#030504", "#8a8375")
     readonly property int knobShadowBlur: 6
     readonly property int knobShadowOffset: 3
     readonly property color knobSpecular: "#4dffffff"
     // Bevel language shared by buttons, panels and screws.
-    readonly property color bevelLight: amberMode ? "#6d5b40" : "#fbf6ea"
-    readonly property color bevelDark: amberMode ? "#000000" : "#6f695d"
-    readonly property color buttonFaceTop: amberMode ? "#3b3225" : "#eae4d6"
-    readonly property color buttonFaceBottom: amberMode ? "#231e17" : "#c1bbae"
-    readonly property color buttonFaceDownTop: amberMode ? "#1e1912" : "#b4aea1"
-    readonly property color buttonFaceDownBottom: amberMode ? "#2c2418" : "#cfc9bc"
+    readonly property color bevelLight: pick("#6d5b40", "#4d6a52", "#fbf6ea")
+    readonly property color bevelDark: pick("#000000", "#000000", "#6f695d")
+    readonly property color buttonFaceTop: pick("#3b3225", "#243027", "#eae4d6")
+    readonly property color buttonFaceBottom: pick("#231e17", "#131b15", "#c1bbae")
+    readonly property color buttonFaceDownTop: pick("#1e1912", "#0e140f", "#b4aea1")
+    readonly property color buttonFaceDownBottom: pick("#2c2418", "#1b241c", "#cfc9bc")
     readonly property color buttonHover: "#14ffffff"
-    readonly property color dropShadow: amberMode ? "#66000000" : "#4a000000"
+    readonly property color dropShadow: pick("#66000000", "#80000000", "#4a000000")
     readonly property int dropShadowOffset: compactMode ? 2 : 3
     readonly property int dropShadowPressedOffset: 1
-    readonly property color windowTop: amberMode ? "#191712" : "#c7c1b2"
-    readonly property color windowBottom: amberMode ? "#0c0b09" : "#aea89a"
-    readonly property color screwLight: amberMode ? "#8b7652" : "#f1ebdc"
-    readonly property color screwDark: amberMode ? "#2a2319" : "#8f887a"
-    readonly property color screwEdge: amberMode ? "#0a0908" : "#4f4b42"
-    readonly property color screwSlot: amberMode ? "#1a150f" : "#5b564c"
+    readonly property color windowTop: pick("#191712", "#101712", "#c7c1b2")
+    readonly property color windowBottom: pick("#0c0b09", "#060a07", "#aea89a")
+    readonly property color screwLight: pick("#8b7652", "#4f6a55", "#f1ebdc")
+    readonly property color screwDark: pick("#2a2319", "#101610", "#8f887a")
+    readonly property color screwEdge: pick("#0a0908", "#030504", "#4f4b42")
+    readonly property color screwSlot: pick("#1a150f", "#0a100b", "#5b564c")
     readonly property int screwDiameter: compactMode ? 6 : 7
-    readonly property color toggleOn: amberMode ? "#bd842c" : "#607b61"
-    readonly property color toggleOff: amberMode ? "#29251e" : "#777568"
-    readonly property color dialTrack: amberMode ? "#514330" : "#827e72"
-    readonly property color dialValue: amberMode ? "#e5aa49" : "#405746"
+    readonly property color toggleOn: pick("#bd842c", "#2f7a4a", "#607b61")
+    readonly property color toggleOff: pick("#29251e", "#1b241d", "#777568")
+    readonly property color dialTrack: pick("#514330", "#3d5142", "#827e72")
+    readonly property color dialValue: accent
 
     readonly property string labelFont: "Arial Narrow"
     readonly property string bodyFont: "Arial"
@@ -87,16 +113,16 @@ QtObject {
     readonly property int serigraphyTracking: 1
     readonly property real knobLabelTracking: 0.6
     readonly property int sectionHeight: compactMode ? 20 : 23
-    readonly property int titleSize: compactMode ? 18 : 23
-    readonly property int sectionSize: compactMode ? 11 : 13
-    readonly property int labelSize: compactMode ? 10 : 11
+    readonly property int titleSize: scaled(compactMode ? 18 : 23)
+    readonly property int sectionSize: scaled(compactMode ? 11 : 13)
+    readonly property int labelSize: scaled(compactMode ? 10 : 11)
     // Nothing below this size is legible on a 960x600 window; everything that
     // used to ask for 7px now uses this token.
-    readonly property int minimumFontSize: compactMode ? 8 : 9
+    readonly property int minimumFontSize: scaled(compactMode ? 8 : 9)
     readonly property int tinySize: minimumFontSize
-    readonly property int displaySize: compactMode ? 10 : 11
-    readonly property int smallTextSize: compactMode ? 9 : 10
-    readonly property int brandSize: compactMode ? 21 : 26
+    readonly property int displaySize: scaled(compactMode ? 10 : 11)
+    readonly property int smallTextSize: scaled(compactMode ? 9 : 10)
+    readonly property int brandSize: scaled(compactMode ? 21 : 26)
     readonly property int lcdWidth: compactMode ? 91 : 112
     readonly property int lcdHeight: compactMode ? 38 : 45
     readonly property int lcdWideWidth: compactMode ? 124 : 150
@@ -119,8 +145,8 @@ QtObject {
     readonly property int rotaryDiameter: compactMode ? 66 : 78
     readonly property int rotaryWidth: compactMode ? 94 : 112
     readonly property int rotaryHeight: compactMode ? 104 : 118
-    readonly property int rotaryLabelSize: compactMode ? 8 : 9
-    readonly property int rotaryPositionLabelSize: compactMode ? 8 : 9
+    readonly property int rotaryLabelSize: scaled(compactMode ? 8 : 9)
+    readonly property int rotaryPositionLabelSize: scaled(compactMode ? 8 : 9)
     readonly property int rotaryLabelHeight: compactMode ? 10 : 12
     readonly property int rotaryOptionLabelWidth: compactMode ? 28 : 32
     readonly property int rotaryDragStep: compactMode ? 16 : 20
@@ -137,16 +163,16 @@ QtObject {
     readonly property int chordButtonHeight: compactMode ? 80 : 92
     readonly property int chordLedDiameter: compactMode ? 7 : 8
     readonly property int chordButtonGap: compactMode ? 3 : 4
-    readonly property color keyWhiteTop: amberMode ? "#efe6d2" : "#faf6eb"
-    readonly property color keyWhiteBottom: amberMode ? "#c9bca2" : "#d9d2c2"
-    readonly property color keyWhiteDownTop: amberMode ? "#b9a986" : "#cec7b6"
-    readonly property color keyWhiteDownBottom: amberMode ? "#d8c9a8" : "#e8e1d1"
-    readonly property color keyBlackTop: amberMode ? "#3b342a" : "#31322e"
-    readonly property color keyBlackBottom: amberMode ? "#16130e" : "#111210"
-    readonly property color keyBlackDownTop: amberMode ? "#241f17" : "#1c1d1a"
-    readonly property color keyBlackDownBottom: amberMode ? "#302920" : "#26271f"
-    readonly property color keySounding: amberMode ? "#e5aa49" : "#6f8b70"
-    readonly property color keyInk: amberMode ? "#3a3226" : "#3b3c36"
+    readonly property color keyWhiteTop: pick("#efe6d2", "#d9d4c6", "#faf6eb")
+    readonly property color keyWhiteBottom: pick("#c9bca2", "#b3ad9f", "#d9d2c2")
+    readonly property color keyWhiteDownTop: pick("#b9a986", "#a29c8f", "#cec7b6")
+    readonly property color keyWhiteDownBottom: pick("#d8c9a8", "#c3bdaf", "#e8e1d1")
+    readonly property color keyBlackTop: pick("#3b342a", "#2b302b", "#31322e")
+    readonly property color keyBlackBottom: pick("#16130e", "#0c110d", "#111210")
+    readonly property color keyBlackDownTop: pick("#241f17", "#171d18", "#1c1d1a")
+    readonly property color keyBlackDownBottom: pick("#302920", "#202720", "#26271f")
+    readonly property color keySounding: accent
+    readonly property color keyInk: pick("#3a3226", "#1b241d", "#3b3c36")
     readonly property int pianoKeyRadius: 3
     readonly property int pianoKeyHeight: chordButtonHeight
     readonly property int pianoOctaveThreshold: 1100

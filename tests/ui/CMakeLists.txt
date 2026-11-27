@@ -15,6 +15,8 @@ set(_qml_files
     "${_qml_dir}/SectionTitle.qml"
     "${_qml_dir}/Screw.qml"
     "${_qml_dir}/PianoKeyboard.qml"
+    "${_qml_dir}/SettingsDialog.qml"
+    "${_qml_dir}/ChordEditorDialog.qml"
     "${_qml_dir}/EffectSlot.qml")
 
 foreach (_qml_file IN LISTS _qml_files)
@@ -30,7 +32,9 @@ qt_add_executable(drumas_ui_tests
     "${_qml_dir}/Models.cpp"
     "${_qml_dir}/Models.h"
     "${_qml_dir}/ValueFormat.cpp"
-    "${_qml_dir}/ValueFormat.h")
+    "${_qml_dir}/ValueFormat.h"
+    "${_qml_dir}/Settings.cpp"
+    "${_qml_dir}/Settings.h")
 qt_add_qml_module(drumas_ui_tests
     URI DrumasProTests
     VERSION 1.0

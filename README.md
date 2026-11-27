@@ -72,6 +72,15 @@ controlar los parámetros del sintetizador y editar los seis slots de efectos. A
 seleccionar un slot, la franja inferior muestra sus parámetros reales (registro,
 rango, unidad y curva) para moverlos en vivo.
 
+El botón `SETUP` abre los ajustes persistentes (`%APPDATA%\Drumaspro\settings.json`,
+JSON con `schemaVersion`, escritura atómica y carga tolerante a archivos
+corruptos): piel (default/ámbar/noche), 6 presets de acento, escala tipográfica
+(90/100/110/125 %), sensibilidad de perillas, curva de velocity, octava por
+defecto, séptimas diatónicas, último tono/escala/patch y el mapeo de los pads.
+Cada pad puede ser diatónico automático o manual (raíz, calidad, inversión y
+octava) con clic derecho o desde `SETUP > CHORD PADS > EDIT`. `LATCH` mantiene el
+acorde sonando hasta pulsar otro o apagarlo, con LED.
+
 - `A W S E D F T G Y H U J K` tocan una octava cromática desde C (C C# D D#
   E F F# G G# A A# B C); `Z` / `X` bajan y suben la octava y el LCD muestra la
   octava actual. Sin auto-repeat y sin interceptar teclas de controles
@@ -120,7 +129,9 @@ del presupuesto de bloque; además, teoría musical (calidades, inversiones,
 límites MIDI, escalas y acordes diatónicos), FFT de fundamentales, continuidad
 de cambio de acorde, niveles de oscilador en vivo, espejo de parámetros/cadena,
 modelo de parámetros de efecto, mapeo del teclado del ordenador a MIDI, cambio
-de octava, límites 0–127, referencias compartidas entre acorde y piano,
+de octava, límites 0–127, referencias compartidas entre acorde y piano, ajustes
+(ida y vuelta, archivo corrupto/vacío/truncado, campos desconocidos, versión
+futura, rangos clampeados), pads manuales frente a diatónicos, séptimas, latch,
 aislamiento de Qt, guardia del singleton QML y pruebas de modelos, carga QML y
 captura offscreen. La CI deja la UI Qt
 desactivada; para ejecutar su prueba local hay que configurar con
@@ -202,6 +213,10 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
   vista del piano en pantalla (tres octavas).
 - [`docs/screenshots/drumaspro-keys-960x600.png`](docs/screenshots/drumaspro-keys-960x600.png) —
   vista del piano en la ventana compacta (dos octavas).
+- [`docs/screenshots/drumaspro-night-1280x720.png`](docs/screenshots/drumaspro-night-1280x720.png) —
+  tema noche con acento fósforo.
+- [`docs/screenshots/drumaspro-setup-1280x720.png`](docs/screenshots/drumaspro-setup-1280x720.png) —
+  diálogo `SETUP` con piel, acento, escala y mapeo de pads.
 - [`docs/rt-safety.md`](docs/rt-safety.md) — reglas del hilo de audio y cómo se
   verifican.
 - [`docs/style.md`](docs/style.md) — guía de estilo y convenciones.

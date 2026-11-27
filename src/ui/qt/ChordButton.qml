@@ -8,6 +8,7 @@ Button {
     property string degree: ""
     property var midiNotes: []
     property bool chordActive: false
+    signal editRequested()
     readonly property bool sounding: chordActive || down
 
     implicitWidth: Theme.chordButtonWidth
@@ -91,6 +92,14 @@ Button {
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
         }
+    }
+
+    // Right-click opens the manual chord editor for this pad.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.editRequested()
     }
 
     background: Item {

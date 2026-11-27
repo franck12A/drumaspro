@@ -9,7 +9,7 @@ o vista se marcan como pendientes en `docs/ui-checklist.md` y
 ## Estado general
 
 - Build Release con Qt: verde.
-- `ctest --preset vs2026-release`: 99/99 en verde al cerrar el bloque 3.
+- `ctest --preset vs2026-release`: 99/99 en verde al cerrar el bloque 4.
 - Árbol de trabajo: limpio tras cada commit de bloque.
 - Sin push; commits temáticos Conventional Commits sin trailers.
 
@@ -137,6 +137,48 @@ Verificación humana pendiente: sonido del piano y glissando, sensación de
 velocity, resaltado y que la franja no se desplace al conmutar. Lista en
 `docs/ui-checklist.md`.
 
-## Bloques 4–7
+## Bloque 4 — Ajustes persistentes (terminado)
+
+Hecho:
+
+- `Settings.h/.cpp`: interfaz propia sobre `QJsonDocument` (sin dependencia
+  nueva). Archivo `%APPDATA%\Drumaspro\settings.json` con `schemaVersion`,
+  escritura atómica con `QSaveFile` y carga tolerante: ausente/vacío/truncado/
+  inválido → defectos; versión futura → rechazo completo; campos desconocidos →
+  ignorados; valores fuera de rango → clamp.
+- Ajustes: piel (default/ámbar/noche), 6 presets de acento (0 = propio de la
+  piel + verde/ámbar/hielo/violeta/óxido), escala tipográfica 90/100/110/125,
+  sensibilidad de perillas 50–150, curva de velocity (lineal/suave/dura), octava
+  por defecto, última tonalidad/escala/patch, séptimas y latch.
+- Tema noche con acento fósforo; la escala de UI multiplica la tipografía (la
+  geometría se mantiene para no romper 960×600).
+- Pads manuales por pad (raíz, 10 calidades de `src/music`, inversión, octava),
+  editor con clic derecho o `SETUP > CHORD PADS > EDIT`, validador que rechaza
+  voicings fuera de MIDI 0..127. Esquema con 8 slots, UI con 7 (octavo
+  reservado). Séptimas globales.
+- `LATCH` en el puente (sin tocar el motor) con LED: mantiene el acorde, otro lo
+  reemplaza, apagarlo lo libera.
+- Diálogo `SETUP` con el estilo del panel (marco, tornillos) y captura en
+  `docs/screenshots/drumaspro-setup-1280x720.png`. Selector de dispositivo y
+  buffer listados como pendientes, sin implementación a medias.
+- `%APPDATA%` no se toca en tests: `DRUMAS_SETTINGS_PATH` apunta a un archivo
+  temporal.
+
+Tests añadidos: ida y vuelta de todos los campos, archivo corrupto/vacío/
+truncado, campos desconocidos, versión futura, clamping, pads manuales vs
+diatónicos, séptimas, latch y apertura de `SETUP`/editor por clic derecho.
+
+A medias / limitaciones:
+
+- La escala de UI es tipográfica, no un zoom de todos los controles.
+- El octavo pad está en el esquema pero no tiene botón en la UI.
+- El diálogo de ajustes no refresca la etiqueta MANUAL/DIATONIC de la lista
+  hasta reabrirlo (el valor sí se guarda y el pad suena correcto).
+
+Verificación humana pendiente: que la piel noche y los acentos se vean bien,
+que la escala 125 % no recorte textos, latch audible sin notas colgadas y
+persistencia real tras reiniciar. Lista en `docs/ui-checklist.md`.
+
+## Bloques 5–7
 
 Pendientes al escribir esta entrada.

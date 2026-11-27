@@ -28,6 +28,13 @@
 #include "music/MusicTypes.h"
 #include "ui/qt/EngineBridge.h"
 #include "ui/qt/Models.h"
+#include "ui/qt/Settings.h"
+
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTemporaryDir>
 
 namespace {
 
@@ -66,6 +73,8 @@ void compareCommandBatches(const std::vector<drumas::core::Command>& left,
         QCOMPARE(left[index].object, right[index].object);
     }
 }
+
+void clearTestSettings() { QFile::remove(qEnvironmentVariable("DRUMAS_SETTINGS_PATH")); }
 
 QQuickItem* findVisualItem(QQuickItem* root, const QString& objectName) {
     if (root == nullptr) {
@@ -370,6 +379,48 @@ private Q_SLOTS:
         QCOMPARE(piano->property("soundingNotes").toList().size(), 0);
     }
 
+    void rightClickOpensChordEditorAndSetupButtonOpensSettings() {
+        clearTestSettings();
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->resize(1280, 720);
+        window->show();
+        QTest::qWait(120);
+
+        auto* setup = findVisualItem(window->contentItem(), QStringLiteral("setupButton"));
+        QVERIFY(setup != nullptr);
+        const QPoint setupPosition =
+            setup->mapToScene(QPointF(setup->width() / 2, setup->height() / 2)).toPoint();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, setupPosition);
+        QTest::qWait(120);
+        auto* settings = window->findChild<QObject*>(QStringLiteral("settingsDialog"));
+        QVERIFY(settings != nullptr);
+        QCOMPARE(settings->property("visible").toBool(), true);
+        settings->setProperty("visible", false);
+        QTest::qWait(60);
+
+        auto* chordButton =
+            findVisualItem(window->contentItem(), QStringLiteral("chordButton_1"));
+        QVERIFY(chordButton != nullptr);
+        const QPoint chordPosition = chordButton
+            ->mapToScene(QPointF(chordButton->width() / 2, chordButton->height() / 2))
+            .toPoint();
+        QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, chordPosition);
+        QTest::qWait(120);
+        auto* editor = window->findChild<QObject*>(QStringLiteral("chordEditorDialog"));
+        QVERIFY(editor != nullptr);
+        QCOMPARE(editor->property("visible").toBool(), true);
+        QCOMPARE(editor->property("chordRow").toInt(), 1);
+        editor->setProperty("visible", false);
+    }
+
     void qmlFitsRequiredWindowSizesAndCapturesBothThemes() {
         const QDir fontDirectory(
             qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
@@ -396,9 +447,10 @@ private Q_SLOTS:
         QTest::qWait(200);
         QVERIFY(QDir().mkpath(QStringLiteral(DRUMAS_SCREENSHOT_DIR)));
 
-        const auto capture = [window](const QSize& size, bool amber,
+        const auto capture = [window](const QSize& size, const QString& theme,
                                       const QString& fileName) {
-            window->setProperty("amberTheme", amber);
+            window->setProperty("amberTheme", theme == QStringLiteral("amber"));
+            window->setProperty("nightTheme", theme == QStringLiteral("night"));
             window->resize(size);
             QTest::qWait(200);
             if (window->size() != size) {
@@ -414,21 +466,37 @@ private Q_SLOTS:
         };
 
         const bool defaultLarge =
-            capture(QSize(1280, 720), false, QStringLiteral("drumaspro-default-1280x720.png"));
+            capture(QSize(1280, 720), QStringLiteral("default"),
+                    QStringLiteral("drumaspro-default-1280x720.png"));
         if (!defaultLarge) {
             QSKIP("Offscreen grabWindow is unavailable; capture requires human/UI verification");
         }
-        QVERIFY(capture(QSize(960, 600), false,
+        QVERIFY(capture(QSize(960, 600), QStringLiteral("default"),
                         QStringLiteral("drumaspro-default-960x600.png")));
-        QVERIFY(capture(QSize(1280, 720), true,
+        QVERIFY(capture(QSize(1280, 720), QStringLiteral("amber"),
                         QStringLiteral("drumaspro-amber-1280x720.png")));
-        QVERIFY(capture(QSize(960, 600), true,
+        QVERIFY(capture(QSize(960, 600), QStringLiteral("amber"),
                         QStringLiteral("drumaspro-amber-960x600.png")));
+        QVERIFY(capture(QSize(1280, 720), QStringLiteral("night"),
+                        QStringLiteral("drumaspro-night-1280x720.png")));
+        QVERIFY(capture(QSize(960, 600), QStringLiteral("night"),
+                        QStringLiteral("drumaspro-night-960x600.png")));
+
+        // Setup dialog capture: theme, accent, scale and chord mapping panel.
+        auto* settingsDialog =
+            window->findChild<QObject*>(QStringLiteral("settingsDialog"));
+        if (settingsDialog != nullptr) {
+            settingsDialog->setProperty("visible", true);
+            QTest::qWait(250);
+            QVERIFY(capture(QSize(1280, 720), QStringLiteral("default"),
+                            QStringLiteral("drumaspro-setup-1280x720.png")));
+            settingsDialog->setProperty("visible", false);
+        }
 
         window->setProperty("bottomView", 1);
-        QVERIFY(capture(QSize(1280, 720), false,
+        QVERIFY(capture(QSize(1280, 720), QStringLiteral("default"),
                         QStringLiteral("drumaspro-keys-1280x720.png")));
-        QVERIFY(capture(QSize(960, 600), false,
+        QVERIFY(capture(QSize(960, 600), QStringLiteral("default"),
                         QStringLiteral("drumaspro-keys-960x600.png")));
     }
 
@@ -634,6 +702,234 @@ private Q_SLOTS:
                  "a full repaint should stay above 30 fps even offscreen");
     }
 
+    void settingsRoundTripKeepsEveryField() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath(QStringLiteral("settings.json"));
+
+        drumas::ui::AppSettings settings;
+        settings.theme = QStringLiteral("night");
+        settings.accentPreset = 3;
+        settings.uiScale = 110;
+        settings.knobSensitivity = 130;
+        settings.velocityCurve = 2;
+        settings.defaultOctave = 2;
+        settings.lastKey = 7;
+        settings.lastScale = 1;
+        settings.lastPatch = 2;
+        settings.sevenths = true;
+        settings.latch = true;
+        settings.chordSlots[0] = drumas::ui::ChordSlotSetting{true, 5, 6, 2, 3};
+
+        QString error;
+        QVERIFY(drumas::ui::SettingsStore::save(settings, file, &error));
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        // Atomic save must leave only the target file behind.
+        QCOMPARE(QDir(directory.path()).entryList(QDir::Files).size(), 1);
+
+        const drumas::ui::AppSettings loaded =
+            drumas::ui::SettingsStore::load(file, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(loaded.theme, QStringLiteral("night"));
+        QCOMPARE(loaded.accentPreset, 3);
+        QCOMPARE(loaded.uiScale, 110);
+        QCOMPARE(loaded.knobSensitivity, 130);
+        QCOMPARE(loaded.velocityCurve, 2);
+        QCOMPARE(loaded.defaultOctave, 2);
+        QCOMPARE(loaded.lastKey, 7);
+        QCOMPARE(loaded.lastScale, 1);
+        QCOMPARE(loaded.lastPatch, 2);
+        QCOMPARE(loaded.sevenths, true);
+        QCOMPARE(loaded.latch, true);
+        QCOMPARE(loaded.chordSlots[0].manual, true);
+        QCOMPARE(loaded.chordSlots[0].root, 5);
+        QCOMPARE(loaded.chordSlots[0].quality, 6);
+        QCOMPARE(loaded.chordSlots[0].inversion, 2);
+        QCOMPARE(loaded.chordSlots[0].octave, 3);
+    }
+
+    void settingsRejectCorruptEmptyTruncatedAndFutureFiles() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QString error;
+
+        const QString corrupt = directory.filePath(QStringLiteral("corrupt.json"));
+        {
+            QFile file(corrupt);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("not json at all");
+        }
+        const auto corruptSettings = drumas::ui::SettingsStore::load(corrupt, &error);
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(corruptSettings.theme, QStringLiteral("default"));
+        QCOMPARE(corruptSettings.uiScale, 100);
+
+        const QString empty = directory.filePath(QStringLiteral("empty.json"));
+        {
+            QFile file(empty);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        error.clear();
+        const auto emptySettings = drumas::ui::SettingsStore::load(empty, &error);
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(emptySettings.theme, QStringLiteral("default"));
+
+        const QString truncated = directory.filePath(QStringLiteral("truncated.json"));
+        {
+            QFile file(truncated);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("{\"theme\": \"amber\"");
+        }
+        error.clear();
+        const auto truncatedSettings =
+            drumas::ui::SettingsStore::load(truncated, &error);
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(truncatedSettings.theme, QStringLiteral("default"));
+
+        const QString future = directory.filePath(QStringLiteral("future.json"));
+        {
+            QFile file(future);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(QJsonDocument(QJsonObject{{QStringLiteral("schemaVersion"), 99},
+                                                 {QStringLiteral("theme"),
+                                                  QStringLiteral("night")}})
+                           .toJson());
+        }
+        error.clear();
+        const auto futureSettings = drumas::ui::SettingsStore::load(future, &error);
+        QVERIFY(error.contains(QStringLiteral("schemaVersion")));
+        QCOMPARE(futureSettings.theme, QStringLiteral("default"));
+
+        const QString missing =
+            directory.filePath(QStringLiteral("does-not-exist.json"));
+        error.clear();
+        const auto missingSettings = drumas::ui::SettingsStore::load(missing, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(missingSettings.uiScale, 100);
+    }
+
+    void settingsIgnoreUnknownFieldsAndClampRanges() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath(QStringLiteral("settings.json"));
+
+        QJsonObject object = drumas::ui::SettingsStore::toJson(drumas::ui::AppSettings{});
+        object.insert(QStringLiteral("theme"), QStringLiteral("amber"));
+        object.insert(QStringLiteral("accentPreset"), 9);
+        object.insert(QStringLiteral("uiScale"), 137);
+        object.insert(QStringLiteral("knobSensitivity"), 999);
+        object.insert(QStringLiteral("velocityCurve"), 7);
+        object.insert(QStringLiteral("defaultOctave"), -3);
+        object.insert(QStringLiteral("lastKey"), 42);
+        object.insert(QStringLiteral("futureField"), QStringLiteral("ignored"));
+        QJsonArray slots = object.value(QStringLiteral("chordSlots")).toArray();
+        QJsonObject slot = slots.at(0).toObject();
+        slot.insert(QStringLiteral("quality"), 42);
+        slot.insert(QStringLiteral("root"), -4);
+        slots.replace(0, slot);
+        object.insert(QStringLiteral("chordSlots"), slots);
+        {
+            QFile output(file);
+            QVERIFY(output.open(QIODevice::WriteOnly));
+            output.write(QJsonDocument(object).toJson());
+        }
+
+        QString error;
+        const auto settings = drumas::ui::SettingsStore::load(file, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(settings.theme, QStringLiteral("amber"));
+        QCOMPARE(settings.accentPreset, 5);
+        QCOMPARE(settings.uiScale, 100);
+        QCOMPARE(settings.knobSensitivity, 150);
+        QCOMPARE(settings.velocityCurve, 2);
+        QCOMPARE(settings.defaultOctave, 0);
+        QCOMPARE(settings.lastKey, 11);
+        QCOMPARE(settings.chordSlots[0].quality, 9);
+        QCOMPARE(settings.chordSlots[0].root, 0);
+    }
+
+    void manualChordPadsAndSeventhsChangeTheNotes() {
+        clearTestSettings();
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+
+        QVERIFY(bridge.setChordSlot(0, true, 2, 6, 0, 3));  // D minor 7, root D3
+        QVERIFY(bridge.playChord(0));
+        const auto& manual = sink.batches.back();
+        QCOMPARE(manual.size(), std::size_t{4});
+        QCOMPARE(static_cast<int>(manual[0].note), 50);
+        QCOMPARE(static_cast<int>(manual[1].note), 53);
+        QCOMPARE(static_cast<int>(manual[2].note), 57);
+        QCOMPARE(static_cast<int>(manual[3].note), 60);
+        QVERIFY(bridge.releaseChord(0));
+        QCOMPARE(bridge.chordSlot(0).value(QStringLiteral("manual")).toBool(), true);
+
+        // A voicing outside MIDI 0..127 is rejected instead of clamped.
+        QVERIFY(!bridge.setChordSlot(1, true, 11, 0, 3, 8));
+
+        QVERIFY(bridge.resetChordSlot(0));
+        QVERIFY(bridge.playChord(0));
+        QCOMPARE(sink.batches.back().size(), std::size_t{3});
+        QCOMPARE(static_cast<int>(sink.batches.back()[0].note), 60);
+        QVERIFY(bridge.releaseChord(0));
+
+        bridge.setSevenths(true);
+        QVERIFY(bridge.playChord(0));
+        const auto& seventh = sink.batches.back();
+        QCOMPARE(seventh.size(), std::size_t{4});
+        QCOMPARE(static_cast<int>(seventh[0].note), 60);
+        QCOMPARE(static_cast<int>(seventh[3].note), 71);
+        QVERIFY(bridge.releaseChord(0));
+
+        // The setting survives a fresh bridge reading the persisted file.
+        {
+            drumas::ui::EngineBridge reloaded(nullptr, &sink);
+            QCOMPARE(reloaded.sevenths(), true);
+        }
+        bridge.setSevenths(false);
+    }
+
+    void latchHoldsTheChordUntilAnotherOrDisabled() {
+        clearTestSettings();
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+
+        bridge.setLatchEnabled(true);
+        QCOMPARE(bridge.latchedRow(), -1);
+        QVERIFY(bridge.playChord(0));
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(bridge.latchedRow(), 0);
+
+        sink.batches.clear();
+        QVERIFY(bridge.releaseChord(0));
+        QCOMPARE(sink.batches.size(), std::size_t{0});
+        QCOMPARE(bridge.latchedRow(), 0);
+
+        QVERIFY(bridge.playChord(2));  // E minor replaces C major
+        QCOMPARE(bridge.latchedRow(), 2);
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QCOMPARE(sink.batches.front().front().type,
+                 drumas::core::CommandType::NoteOff);
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOn);
+
+        sink.batches.clear();
+        bridge.setLatchEnabled(false);
+        QCOMPARE(bridge.latchedRow(), -1);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOff);
+        QCOMPARE(sink.batches.back().size(), std::size_t{3});
+
+        // Velocity curves and knob sensitivity are clamped settings.
+        bridge.setVelocityCurve(1);
+        QCOMPARE(bridge.applyVelocityCurve(0.25), 0.5);
+        bridge.setVelocityCurve(2);
+        QCOMPARE(bridge.applyVelocityCurve(0.5), 0.25);
+        bridge.setVelocityCurve(0);
+        QCOMPARE(bridge.applyVelocityCurve(0.3), 0.3);
+    }
+
     void blockingUiThreadDoesNotStopAudioProcessing() {
         SilentProcessor processor;
         drumas::engine::AudioGraph graph;
@@ -666,6 +962,11 @@ private Q_SLOTS:
 int main(int argc, char* argv[]) {
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QGuiApplication application(argc, argv);
+    // Never read or write the developer's real settings from the test suite.
+    const QString settingsPath =
+        QDir::temp().filePath(QStringLiteral("drumaspro-test-settings.json"));
+    QFile::remove(settingsPath);
+    qputenv("DRUMAS_SETTINGS_PATH", settingsPath.toUtf8());
     UiTests tests;
     return QTest::qExec(&tests, argc, argv);
 }

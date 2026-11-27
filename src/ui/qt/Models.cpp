@@ -269,6 +269,22 @@ ChordModel::ChordModel(QObject* parent) : QAbstractListModel(parent) {
     (void)setScale(0, false);
 }
 
+void ChordModel::rebuildChords() {
+    const music::Scale scale{
+        kPitchClasses[static_cast<std::size_t>(tonic_)],
+        naturalMinor_ ? music::ScaleType::NaturalMinor : music::ScaleType::Major};
+    const auto result = music::diatonicChords(
+        scale, sevenths_ ? music::DiatonicChordType::Seventh
+                         : music::DiatonicChordType::Triad);
+    if (!result.has_value()) {
+        return;
+    }
+    beginResetModel();
+    chords_ = *result;
+    count_ = static_cast<int>(chords_.size());
+    endResetModel();
+}
+
 int ChordModel::rowCount(const QModelIndex& parent) const {
     return parent.isValid() ? 0 : count_;
 }
@@ -277,8 +293,10 @@ QVariant ChordModel::data(const QModelIndex& index, int role) const {
     if (!index.isValid() || index.row() < 0 || index.row() >= count_) {
         return {};
     }
-    const music::DiatonicChord& diatonic = chords_[static_cast<std::size_t>(index.row())];
-    const auto chordName = music::chordName(diatonic.chord);
+    const std::size_t row = static_cast<std::size_t>(index.row());
+    const music::DiatonicChord& diatonic = chords_[row];
+    const music::Chord chord = manualChords_[row].value_or(diatonic.chord);
+    const auto chordName = music::chordName(chord);
     switch (role) {
         case DegreeRole: return diatonic.degree;
         case NumeralRole: return fromUtf8(diatonic.numeral);
@@ -288,7 +306,7 @@ QVariant ChordModel::data(const QModelIndex& index, int role) const {
             return chordName.has_value() ? fromUtf8(chordName->quality) : QString{};
         case MidiNotesRole: {
             QVariantList notes;
-            const auto midi = music::chordToMidiNotes(diatonic.chord);
+            const auto midi = music::chordToMidiNotes(chord);
             if (midi.has_value()) {
                 for (std::size_t note = 0; note < midi->count; ++note) {
                     notes.append(midi->notes[note]);
@@ -296,6 +314,7 @@ QVariant ChordModel::data(const QModelIndex& index, int role) const {
             }
             return notes;
         }
+        case ManualRole: return manualChords_[row].has_value();
         default: return {};
     }
 }
@@ -303,32 +322,52 @@ QVariant ChordModel::data(const QModelIndex& index, int role) const {
 QHash<int, QByteArray> ChordModel::roleNames() const {
     return {{DegreeRole, "degree"}, {NumeralRole, "degreeNumeral"},
             {RootRole, "chordRoot"}, {QualityRole, "chordQuality"},
-            {MidiNotesRole, "chordMidiNotes"}};
+            {MidiNotesRole, "chordMidiNotes"}, {ManualRole, "chordManual"}};
 }
 
 bool ChordModel::setScale(int tonicSemitones, bool naturalMinor) {
     if (tonicSemitones < 0 || tonicSemitones >= static_cast<int>(kPitchClasses.size())) {
         return false;
     }
-    const music::Scale scale{
-        kPitchClasses[static_cast<std::size_t>(tonicSemitones)],
-        naturalMinor ? music::ScaleType::NaturalMinor : music::ScaleType::Major};
-    const auto result = music::diatonicChords(scale);
-    if (!result.has_value()) {
+    tonic_ = tonicSemitones;
+    naturalMinor_ = naturalMinor;
+    rebuildChords();
+    return true;
+}
+
+bool ChordModel::setSevenths(bool sevenths) {
+    if (sevenths_ == sevenths) {
+        return true;
+    }
+    sevenths_ = sevenths;
+    rebuildChords();
+    return true;
+}
+
+bool ChordModel::setManualChord(int row, const std::optional<music::Chord>& chord) {
+    if (row < 0 || row >= count_) {
         return false;
     }
-    beginResetModel();
-    chords_ = *result;
-    count_ = static_cast<int>(chords_.size());
-    endResetModel();
+    if (chord.has_value() && !music::chordToMidiNotes(*chord).has_value()) {
+        return false;
+    }
+    manualChords_[static_cast<std::size_t>(row)] = chord;
+    const QModelIndex changed = index(row);
+    Q_EMIT dataChanged(changed, changed,
+                       {RootRole, QualityRole, MidiNotesRole, ManualRole});
     return true;
+}
+
+bool ChordModel::isManual(int row) const noexcept {
+    return row >= 0 && row < count_ && manualChords_[static_cast<std::size_t>(row)].has_value();
 }
 
 bool ChordModel::chordAt(int row, music::Chord& chord) const noexcept {
     if (row < 0 || row >= count_) {
         return false;
     }
-    chord = chords_[static_cast<std::size_t>(row)].chord;
+    const std::size_t slot = static_cast<std::size_t>(row);
+    chord = manualChords_[slot].value_or(chords_[slot].chord);
     return true;
 }
 

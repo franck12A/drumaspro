@@ -5,18 +5,37 @@ Button {
     id: root
     checkable: true
     property string label: ""
+    property bool showLed: false
     implicitWidth: Theme.toggleWidth
     implicitHeight: Theme.toggleHeight
 
-    contentItem: Text {
+    contentItem: Item {
         y: root.down ? 1 : 0
-        text: root.label
-        color: root.checked ? Theme.sectionInk : Theme.ink
-        font.family: Theme.labelFont
-        font.pixelSize: Theme.labelSize
-        font.bold: true
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
+
+        Row {
+            anchors.centerIn: parent
+            spacing: Theme.inlineGap
+
+            Rectangle {
+                visible: root.showLed
+                width: Theme.chordLedDiameter
+                height: width
+                radius: width / 2
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.checked ? Theme.ledActive : Theme.ledOff
+                border.color: Theme.edge
+                border.width: Theme.hairlineWidth
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.label
+                color: root.checked ? Theme.sectionInk : Theme.ink
+                font.family: Theme.labelFont
+                font.pixelSize: Theme.labelSize
+                font.bold: true
+            }
+        }
     }
 
     background: Item {

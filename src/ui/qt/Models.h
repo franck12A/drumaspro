@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 
 #include <QAbstractListModel>
 #include <QVariant>
@@ -140,6 +141,7 @@ public:
         RootRole,
         QualityRole,
         MidiNotesRole,
+        ManualRole,
     };
     Q_ENUM(Role)
 
@@ -149,11 +151,21 @@ public:
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
     [[nodiscard]] bool setScale(int tonicSemitones, bool naturalMinor);
+    [[nodiscard]] bool setSevenths(bool sevenths);
+    /// Manual override for one pad; `std::nullopt` restores the diatonic chord.
+    [[nodiscard]] bool setManualChord(int row, const std::optional<music::Chord>& chord);
     [[nodiscard]] bool chordAt(int row, music::Chord& chord) const noexcept;
+    [[nodiscard]] bool isManual(int row) const noexcept;
 
 private:
+    void rebuildChords();
+
     std::array<music::DiatonicChord, 7> chords_{};
+    std::array<std::optional<music::Chord>, 7> manualChords_{};
     int count_ = 0;
+    int tonic_ = 0;
+    bool naturalMinor_ = false;
+    bool sevenths_ = false;
 };
 
 }  // namespace drumas::ui

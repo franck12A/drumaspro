@@ -3,12 +3,16 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QTimer>
+#include <QVariantMap>
 
+#include "Settings.h"
 #include "bridge/ChainMirror.h"
 #include "bridge/CommandSink.h"
 #include "bridge/ParameterMirror.h"
@@ -29,6 +33,19 @@ class EngineBridge final : public QObject {
     Q_PROPERTY(QString selectedEffectTypeName READ selectedEffectTypeName NOTIFY
                    selectedEffectSlotChanged)
     Q_PROPERTY(int pianoOctave READ pianoOctave NOTIFY pianoOctaveChanged)
+    Q_PROPERTY(QString themeName READ themeName WRITE setThemeName NOTIFY settingsChanged)
+    Q_PROPERTY(int accentPreset READ accentPreset WRITE setAccentPreset NOTIFY settingsChanged)
+    Q_PROPERTY(int uiScale READ uiScale WRITE setUiScale NOTIFY settingsChanged)
+    Q_PROPERTY(int knobSensitivity READ knobSensitivity WRITE setKnobSensitivity NOTIFY
+                   settingsChanged)
+    Q_PROPERTY(int velocityCurve READ velocityCurve WRITE setVelocityCurve NOTIFY settingsChanged)
+    Q_PROPERTY(int defaultOctave READ defaultOctave WRITE setDefaultOctave NOTIFY settingsChanged)
+    Q_PROPERTY(bool sevenths READ sevenths WRITE setSevenths NOTIFY settingsChanged)
+    Q_PROPERTY(bool latchEnabled READ latchEnabled WRITE setLatchEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int latchedRow READ latchedRow NOTIFY latchChanged)
+    Q_PROPERTY(int initialKey READ initialKey CONSTANT)
+    Q_PROPERTY(int initialScale READ initialScale CONSTANT)
+    Q_PROPERTY(int initialPatch READ initialPatch CONSTANT)
     Q_PROPERTY(bool running READ running NOTIFY statusChanged)
     Q_PROPERTY(int activeVoices READ activeVoices NOTIFY statusChanged)
     Q_PROPERTY(double outputPeak READ outputPeak NOTIFY statusChanged)
@@ -50,6 +67,26 @@ public:
     [[nodiscard]] int selectedEffectSlot() const noexcept { return selectedEffectSlot_; }
     [[nodiscard]] QString selectedEffectTypeName() const;
     [[nodiscard]] int pianoOctave() const noexcept { return pianoOctave_; }
+    [[nodiscard]] QString themeName() const { return settings_.theme; }
+    [[nodiscard]] int accentPreset() const noexcept { return settings_.accentPreset; }
+    [[nodiscard]] int uiScale() const noexcept { return settings_.uiScale; }
+    [[nodiscard]] int knobSensitivity() const noexcept { return settings_.knobSensitivity; }
+    [[nodiscard]] int velocityCurve() const noexcept { return settings_.velocityCurve; }
+    [[nodiscard]] int defaultOctave() const noexcept { return settings_.defaultOctave; }
+    [[nodiscard]] bool sevenths() const noexcept { return settings_.sevenths; }
+    [[nodiscard]] bool latchEnabled() const noexcept { return settings_.latch; }
+    [[nodiscard]] int latchedRow() const noexcept { return latchedRow_; }
+    [[nodiscard]] int initialKey() const noexcept { return settings_.lastKey; }
+    [[nodiscard]] int initialScale() const noexcept { return settings_.lastScale; }
+    [[nodiscard]] int initialPatch() const noexcept { return settings_.lastPatch; }
+    void setThemeName(const QString& theme);
+    void setAccentPreset(int preset);
+    void setUiScale(int scale);
+    void setKnobSensitivity(int sensitivity);
+    void setVelocityCurve(int curve);
+    void setDefaultOctave(int octave);
+    void setSevenths(bool sevenths);
+    void setLatchEnabled(bool enabled);
     [[nodiscard]] bool running() const noexcept { return engine_.isRunning(); }
     [[nodiscard]] int activeVoices() const noexcept;
     [[nodiscard]] double outputPeak() const noexcept { return outputPeak_; }
@@ -78,6 +115,15 @@ public:
     Q_INVOKABLE int semitoneForKey(int key) const;
     /// MIDI note for a semitone offset in the current octave, clamped to 0..127.
     Q_INVOKABLE int midiNoteForSemitone(int semitone) const;
+    Q_INVOKABLE double applyVelocityCurve(double velocity) const;
+    Q_INVOKABLE QStringList chordQualityNames() const;
+    Q_INVOKABLE QStringList noteNames() const;
+    Q_INVOKABLE QVariantMap chordSlot(int row) const;
+    Q_INVOKABLE bool setChordSlot(int row, bool manual, int root, int quality,
+                                  int inversion, int octave);
+    Q_INVOKABLE bool resetChordSlot(int row);
+    Q_INVOKABLE bool saveSettings();
+    Q_INVOKABLE QString settingsPath() const;
     Q_INVOKABLE QString formatParameterValue(qulonglong id, double value) const;
     Q_INVOKABLE QString formatUnitValue(const QString& unit, double value) const;
     Q_INVOKABLE bool setChordScale(int tonicSemitones, bool naturalMinor);
@@ -91,6 +137,8 @@ Q_SIGNALS:
     void errorChanged();
     void selectedEffectSlotChanged();
     void pianoOctaveChanged();
+    void settingsChanged();
+    void latchChanged();
 
 private Q_SLOTS:
     void refreshStatus();
@@ -99,6 +147,9 @@ private:
     void setError(QString message);
     void applyPatchToMirror(int index);
     void refreshEffectParameterModel();
+    void applyChordSettings();
+    bool releaseChordInternal(int row);
+    void persistSettings();
 
     synth::SynthProcessor synth_;
     engine::AudioEngine engine_;
@@ -114,6 +165,8 @@ private:
     EffectParameterModel effectParameterModel_;
     QTimer timer_;
     QString error_;
+    AppSettings settings_{};
+    int latchedRow_ = -1;
     std::atomic<std::uint64_t> xruns_{0};
     double outputPeak_ = 0.0;
     int selectedEffectSlot_ = 0;

@@ -12,11 +12,12 @@ ApplicationWindow {
     visible: true
     title: "DRUMASPRO"
     color: Theme.background
-    property bool amberTheme: false
+    property bool amberTheme: engineBridge.themeName === "amber"
+    property bool nightTheme: engineBridge.themeName === "night"
     property bool compactLayout: width < 1100 || height < 680
-    property int currentKeyIndex: 0
-    property int currentModeIndex: 0
-    property int currentPatchIndex: 0
+    property int currentKeyIndex: engineBridge.initialKey
+    property int currentModeIndex: engineBridge.initialScale
+    property int currentPatchIndex: engineBridge.initialPatch
     property string activeChordName: "READY"
     property var activeChordRows: ({})
     property int selectedEffectSlot: 0
@@ -40,6 +41,41 @@ ApplicationWindow {
         target: Theme
         property: "compactMode"
         value: window.compactLayout
+    }
+
+    Binding {
+        target: Theme
+        property: "nightMode"
+        value: window.nightTheme
+    }
+
+    Binding {
+        target: Theme
+        property: "accentPreset"
+        value: engineBridge.accentPreset
+    }
+
+    Binding {
+        target: Theme
+        property: "uiScale"
+        value: engineBridge.uiScale / 100.0
+    }
+
+    function applyTheme(name) {
+        window.amberTheme = name === "amber"
+        window.nightTheme = name === "night"
+        engineBridge.themeName = name
+    }
+
+    function clearChordHighlights() {
+        for (let row = 0; row < 7; ++row) {
+            const button = chordRepeater.itemAt(row)
+            if (button)
+                button.chordActive = false
+        }
+        activeChordRows = ({})
+        activeChordName = "READY"
+        refreshSoundingChordNotes()
     }
 
     function refreshSoundingChordNotes() {
@@ -82,12 +118,26 @@ ApplicationWindow {
             activeChordName = button.rootName + " " + button.quality
         }
         engineBridge.playChord(row)
+        if (engineBridge.latchEnabled) {
+            for (let other = 0; other < 7; ++other) {
+                if (other === row)
+                    continue
+                const otherButton = chordRepeater.itemAt(other)
+                if (otherButton)
+                    otherButton.chordActive = false
+            }
+            activeChordRows = ({})
+            activeChordRows[row] = true
+        }
         refreshSoundingChordNotes()
     }
 
     function releaseChord(row) {
         engineBridge.releaseChord(row)
         const button = chordRepeater.itemAt(row)
+        // With latch on, the bridge keeps the chord sounding; leave the LED lit.
+        if (engineBridge.latchEnabled && engineBridge.latchedRow === row)
+            return
         if (button)
             button.chordActive = false
         delete activeChordRows[row]
@@ -374,7 +424,7 @@ ApplicationWindow {
                     Layout.preferredWidth: Theme.themeToggleWidth
                     label: "AMBER"
                     checked: window.amberTheme
-                    onToggled: window.amberTheme = checked
+                    onToggled: window.applyTheme(checked ? "amber" : "default")
                 }
             }
 
@@ -392,9 +442,38 @@ ApplicationWindow {
                     anchors.margins: Theme.padding
                     spacing: Theme.spacing
 
-                    SectionTitle {
-                        text: "SYNTHESIZER"
-                        inverted: true
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.inlineGap
+
+                        SectionTitle {
+                            Layout.fillWidth: true
+                            text: "SYNTHESIZER"
+                            inverted: true
+                        }
+
+                        ToggleButton {
+                            objectName: "latchToggle"
+                            Layout.preferredWidth: Theme.toggleWidth
+                            Layout.preferredHeight: Theme.sectionHeight
+                            label: "LATCH"
+                            showLed: true
+                            checked: engineBridge.latchEnabled
+                            onToggled: {
+                                engineBridge.latchEnabled = checked
+                                if (!checked)
+                                    window.clearChordHighlights()
+                            }
+                        }
+
+                        ToggleButton {
+                            objectName: "setupButton"
+                            checkable: false
+                            Layout.preferredWidth: Theme.toggleWidth
+                            Layout.preferredHeight: Theme.sectionHeight
+                            label: "SETUP"
+                            onClicked: settingsDialog.open()
+                        }
                     }
 
                     RowLayout {
@@ -414,7 +493,7 @@ ApplicationWindow {
                                 options: window.patchNames
                                 shortOptions: ["PAD", "PLK", "KEY"]
                                 currentIndex: window.currentPatchIndex
-                                onActivated: {
+                                onActivated: function(index) {
                                     window.currentPatchIndex = index
                                     engineBridge.selectPatch(index)
                                 }
@@ -427,7 +506,7 @@ ApplicationWindow {
                                 options: ["MAJOR", "NAT MIN"]
                                 shortOptions: ["MAJ", "MIN"]
                                 currentIndex: window.currentModeIndex
-                                onActivated: {
+                                onActivated: function(index) {
                                     window.currentModeIndex = index
                                     engineBridge.setChordScale(
                                         window.currentKeyIndex, index === 1)
@@ -585,6 +664,7 @@ ApplicationWindow {
                                 onPressed: window.playChord(index)
                                 onReleased: window.releaseChord(index)
                                 onCanceled: window.releaseChord(index)
+                                onEditRequested: chordEditor.openFor(index)
                             }
                         }
                     }
@@ -599,7 +679,8 @@ ApplicationWindow {
                         soundingNotes: window.soundingChordNotes.concat(
                                            window.pianoHeldNotes)
                         onNoteOn: function(note, velocity) {
-                            window.pressPianoNote(note, velocity)
+                            window.pressPianoNote(
+                                note, engineBridge.applyVelocityCurve(velocity))
                         }
                         onNoteOff: function(note) {
                             window.releasePianoNote(note)
@@ -843,5 +924,15 @@ ApplicationWindow {
                 elide: Text.ElideRight
             }
         }
+    }
+
+    SettingsDialog {
+        id: settingsDialog
+        onThemeSelected: function(name) { window.applyTheme(name) }
+        onEditChordRequested: function(row) { chordEditor.openFor(row) }
+    }
+
+    ChordEditorDialog {
+        id: chordEditor
     }
 }

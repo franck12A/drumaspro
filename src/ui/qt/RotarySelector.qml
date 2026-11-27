@@ -175,14 +175,14 @@ Item {
         property real startY: 0
         property int startIndex: 0
         property bool dragged: false
-        onPressed: {
+        onPressed: function(mouse) {
             startX = mouse.x
             startY = mouse.y
             startIndex = root.currentIndex
             dragged = false
             root.forceActiveFocus()
         }
-        onPositionChanged: {
+        onPositionChanged: function(mouse) {
             if (!pressed || root.optionCount < 2)
                 return
             const delta = startX - mouse.x + startY - mouse.y

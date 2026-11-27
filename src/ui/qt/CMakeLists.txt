@@ -7,7 +7,9 @@ qt_add_executable(drumaspro_qt
     Models.cpp
     Models.h
     ValueFormat.cpp
-    ValueFormat.h)
+    ValueFormat.h
+    Settings.cpp
+    Settings.h)
 set_target_properties(drumaspro_qt PROPERTIES OUTPUT_NAME drumaspro)
 
 # The singleton property must be set before qt_add_qml_module reads the
@@ -32,6 +34,8 @@ qt_add_qml_module(drumaspro_qt
         SectionTitle.qml
         Screw.qml
         PianoKeyboard.qml
+        SettingsDialog.qml
+        ChordEditorDialog.qml
         EffectSlot.qml)
 
 target_include_directories(drumaspro_qt PRIVATE "${DRUMAS_SRC_DIR}")
