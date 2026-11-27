@@ -9,9 +9,29 @@ o vista se marcan como pendientes en `docs/ui-checklist.md` y
 ## Estado general
 
 - Build Release con Qt: verde.
-- `ctest --preset vs2026-release`: 99/99 en verde al cerrar el bloque 4.
+- `ctest --preset vs2026-release`: **107/107** en verde (antes 99).
+  - Recuento real: **104 casos de Catch2** (`drumas_tests`), **20 slots de
+    QtTest** en `qt_ui_tests`, más 2 comprobaciones de CMake
+    (`engine_has_no_qt`, `qml_theme_singleton`).
 - Árbol de trabajo: limpio tras cada commit de bloque.
 - Sin push; commits temáticos Conventional Commits sin trailers.
+
+## Bloque 0 — Orden previo (terminado)
+
+`git status` limpio y `ctest` 99/99 antes de tocar nada. Estado real de lo
+pedido en la sesión anterior, con evidencia:
+
+| Punto | Estado | Evidencia |
+|---|---|---|
+| Porcentajes ×100 y LCD `VOICES`/`XRUNS` | completo | `src/ui/qt/ValueFormat.cpp`; commit `8ca3fe0`; test `parameterValuesUseTheirUnitAndScale` |
+| Look 3D de botones y perillas | completo | commit `5476764`; `ChordButton.qml`, `Knob.qml`, `Screw.qml`, `ThemeAmber.qml` |
+| Piano en pantalla + teclas A W S E D F | completo | commit `8ccaf8b`; `PianoKeyboard.qml`; tests de mapeo y click |
+| Ajustes persistentes | completo | commit `7d6b200`; `Settings.cpp`; ADR 0014; tests de ida/vuelta y archivo corrupto |
+| Pads de acorde personalizables | completo (7 pads visibles) | `ChordEditorDialog.qml`, `EngineBridge::setChordSlot`; el octavo slot existe en el esquema pero no tiene botón |
+| `LATCH` | completo | `EngineBridge` + `latchHoldsTheChordUntilAnotherOrDisabled` |
+
+Nada de esto se reimplementó en este bloque; se retoma en el bloque 12 de la
+lista si queda tiempo.
 
 ## Bloque 0 — Orden previo (terminado)
 
@@ -233,6 +253,50 @@ Verificación humana pendiente: timbre y balance de los doce patches nuevos,
 recorrido del filtro, que el patch cargado sea el que suena y que los archivos
 sobrevivan a un reinicio. Listas concretas en `docs/listening-checklist.md` y
 `docs/ui-checklist.md`.
+
+## Bloque 1 — ChordOn/ChordOff reales (terminado)
+
+Hecho:
+
+- `core::Command` gana `group` (1..31), `notes` (4 bytes empaquetados) y
+  `noteCount`, más `CommandType::ChordOn`/`ChordOff` y los helpers
+  `chordOn`, `chordOff`, `chordNoteAt`, `kMaxChordNotes = 4`. Sigue siendo
+  trivialmente copiable.
+- `VoicePool::chordOn` reserva **todas** las voces antes de arrancar ninguna:
+  el acorde es atómico y todas sus notas empiezan en la primera muestra del
+  bloque. Un acorde de más de cuatro notas o con grupo 0 se rechaza entero.
+- Cada voz lleva una máscara de grupos (`uint32_t`, un bit por pad). Si una nota
+  ya la mantiene otro acorde, el nuevo se une a esa voz en vez de reatacarla, y
+  `chordOff` solo retira su bit: la nota compartida sigue sonando hasta que la
+  suelte el último acorde.
+- Las notas sueltas (piano, consola) van sin grupo y nunca reutilizan ni liberan
+  una voz de acorde.
+- Robo: primero voces en release (la más antigua), después la más silenciosa y
+  a igualdad la más antigua; la voz reutilizada entra con fade-in de 2 ms.
+- El puente ya no expande acordes: `bridge::ChordExpander` emite un solo
+  comando y `EngineBridge` usa un `group = fila + 1`. `noteRefCounts_` queda
+  solo para pulsaciones repetidas del piano.
+- ADR [0015](adr/0015-chord-groups-and-voice-stealing.md).
+
+Tests añadidos (7): arranque atómico en la primera muestra, C→Am con notas
+compartidas sin reataque ni corte, `ChordOff` por grupo con varios acordes
+mantenidos, notas sueltas que no roban voces de acorde, robo finito sin clics
+(`largestStep < 0.5` con 32 voces), rechazo de acordes de más de cuatro notas y
+continuidad de waveform en el cambio de acorde (`steady/switch/release`
+comparados con el umbral de siempre).
+
+A medias / limitaciones:
+
+- El límite es 4 notas por acorde; no hay acordes de 5–6 notas (no los genera
+  `src/music` hoy).
+- El fade-in de 2 ms solo actúa al reutilizar una voz que sonaba; un ataque
+  normal no se suaviza.
+- `ChordOn` no lleva un id de "pulsación": dos pulsaciones del mismo pad sin
+  soltar no se distinguen, igual que antes (el puente filtra la segunda).
+
+Verificación humana pendiente: que el cambio C→Am no se oiga como reataque y
+que el latch no deje notas colgadas con el nuevo camino; ver
+`docs/ui-checklist.md` y `docs/listening-checklist.md`.
 
 ## Bloques 6 y 7
 

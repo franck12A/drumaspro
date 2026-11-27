@@ -28,7 +28,9 @@ como verificado sin ejecutarlo.
 - [ ] Las teclas 1–7 producen los mismos acordes; auto-repeat no dispara notas
   adicionales y los controles enfocados conservan sus teclas.
 - [ ] Mantener dos acordes con notas comunes (por ejemplo C y Em) no reataca la
-  nota compartida ni la corta al soltar el primero.
+  nota compartida ni la corta al soltar el primero. Con el nuevo camino de
+  grupos, soltar C debe dejar sonando E y G sin cambio de nivel audible, y
+  soltar Em después debe apagarlas con su release normal.
 - [ ] El medidor responde al nivel de salida y cae gradualmente al terminar el
   sonido; el LCD indica por separado las voces activas.
 - [ ] Mover cada knob cambia el parámetro esperado sin saltos audibles.
@@ -39,6 +41,9 @@ como verificado sin ejecutarlo.
   coincide con el oído.
 - [ ] Bloquear o arrastrar la ventana no causa glitches audibles ni deja el
   motor en un estado incoherente.
+- [ ] Pulsar muchos pads seguidos (más de 32 notas acumuladas en release) no
+  produce chasquidos: el motor roba primero voces en release y las nuevas
+  entran con un fade de 2 ms.
 - [ ] En el tema predeterminado, el panel gris-beige, los marcos negros, la
   serigrafía, las perillas estriadas, los selectores y LEDs son legibles; el
   tema ámbar conserva contraste equivalente.
