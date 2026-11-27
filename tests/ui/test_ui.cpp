@@ -223,6 +223,153 @@ private Q_SLOTS:
         QCOMPARE(static_cast<int>(releaseEm[2].note), 71);
     }
 
+    void computerKeyboardMapsOctavesAndMidiLimits() {
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_A), 0);
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_W), 1);
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_S), 2);
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_K), 12);
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_Z), -1);
+        QCOMPARE(bridge.semitoneForKey(Qt::Key_1), -1);
+
+        QCOMPARE(bridge.pianoOctave(), 4);
+        QCOMPARE(bridge.midiNoteForSemitone(0), 60);
+        QCOMPARE(bridge.midiNoteForSemitone(12), 72);
+        bridge.setPianoOctave(2);
+        QCOMPARE(bridge.midiNoteForSemitone(0), 36);
+        bridge.setPianoOctave(8);
+        QCOMPARE(bridge.midiNoteForSemitone(0), 108);
+        QCOMPARE(bridge.midiNoteForSemitone(12), 120);
+        QVERIFY(!bridge.shiftPianoOctave(1));
+        QCOMPARE(bridge.pianoOctave(), 8);
+        bridge.setPianoOctave(0);
+        QVERIFY(!bridge.shiftPianoOctave(-1));
+        QCOMPARE(bridge.pianoOctave(), 0);
+        QCOMPARE(bridge.midiNoteForSemitone(0), 12);
+        QCOMPARE(bridge.midiNoteForSemitone(-5), 12);
+        QCOMPARE(bridge.midiNoteForSemitone(99), 24);
+
+        bridge.setPianoOctave(4);
+        QVERIFY(!bridge.noteOn(-1, 0.8));
+        QVERIFY(!bridge.noteOn(128, 0.8));
+        QVERIFY(!bridge.noteOn(60, std::nan("")));
+        QVERIFY(bridge.noteOn(127, 0.8));
+        QVERIFY(bridge.noteOff(127));
+    }
+
+    void pianoNotesShareReferencesWithChords() {
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+
+        QVERIFY(bridge.noteOn(60, 0.8));
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QVERIFY(bridge.noteOn(60, 0.8));
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QVERIFY(bridge.noteOff(60));
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QVERIFY(bridge.noteOff(60));
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOff);
+
+        sink.batches.clear();
+        QVERIFY(bridge.playChord(0));  // C4 E4 G4
+        sink.batches.clear();
+        QVERIFY(bridge.noteOn(60, 0.5));
+        QCOMPARE(sink.batches.size(), std::size_t{0});
+        QVERIFY(bridge.noteOff(60));
+        QCOMPARE(sink.batches.size(), std::size_t{0});
+        QVERIFY(bridge.releaseChord(0));
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(sink.batches.back().size(), std::size_t{3});
+    }
+
+    void pianoViewPlaysNotesAndComputerKeysFollowOctave() {
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->resize(1280, 720);
+        window->show();
+        window->requestActivate();
+        QTest::qWait(150);
+
+        window->setProperty("bottomView", 1);
+        QTest::qWait(100);
+        auto* piano =
+            findVisualItem(window->contentItem(), QStringLiteral("pianoKeyboard"));
+        QVERIFY(piano != nullptr);
+        QVERIFY(piano->isVisible());
+        QCOMPARE(piano->property("octaveCount").toInt(), 3);
+        QCOMPARE(piano->property("lowestNote").toInt(), 48);
+
+        const QPoint firstKey = piano
+            ->mapToScene(QPointF(piano->width() / 21.0 / 2.0,
+                                 piano->height() * 0.9))
+            .toPoint();
+        sink.batches.clear();
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, firstKey);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(sink.batches.back().size(), std::size_t{1});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOn);
+        QCOMPARE(static_cast<int>(sink.batches.back().front().note), 48);
+        QCOMPARE(piano->property("pressedNote").toInt(), 48);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, firstKey);
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOff);
+
+        auto* keyboardFocus =
+            findVisualItem(window->contentItem(), QStringLiteral("keyboardFocus"));
+        QVERIFY(keyboardFocus != nullptr);
+        keyboardFocus->forceActiveFocus();
+        QVERIFY(window->activeFocusItem() == keyboardFocus);
+
+        sink.batches.clear();
+        QTest::keyPress(window, Qt::Key_A);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(static_cast<int>(sink.batches.back().front().note), 60);
+        QKeyEvent autoRepeat(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier,
+                             QStringLiteral("a"), true, 1);
+        QCoreApplication::sendEvent(window, &autoRepeat);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QTest::keyRelease(window, Qt::Key_A);
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        QCOMPARE(sink.batches.back().front().type,
+                 drumas::core::CommandType::NoteOff);
+
+        sink.batches.clear();
+        QTest::keyPress(window, Qt::Key_X);
+        QCOMPARE(sink.batches.size(), std::size_t{0});
+        QCOMPARE(bridge.pianoOctave(), 5);
+        QTest::keyPress(window, Qt::Key_A);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(static_cast<int>(sink.batches.back().front().note), 72);
+        QTest::keyRelease(window, Qt::Key_A);
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+
+        QTest::keyPress(window, Qt::Key_Z);
+        QCOMPARE(bridge.pianoOctave(), 4);
+        QTest::keyRelease(window, Qt::Key_Z);
+
+        // Held chords highlight their notes on the piano while the keys view is
+        // open; 1-7 keep working there.
+        sink.batches.clear();
+        QTest::keyPress(window, Qt::Key_1);
+        QCOMPARE(sink.batches.size(), std::size_t{1});
+        QCOMPARE(piano->property("soundingNotes").toList().size(), 3);
+        QTest::keyRelease(window, Qt::Key_1);
+        QCOMPARE(piano->property("soundingNotes").toList().size(), 0);
+    }
+
     void qmlFitsRequiredWindowSizesAndCapturesBothThemes() {
         const QDir fontDirectory(
             qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
@@ -277,6 +424,12 @@ private Q_SLOTS:
                         QStringLiteral("drumaspro-amber-1280x720.png")));
         QVERIFY(capture(QSize(960, 600), true,
                         QStringLiteral("drumaspro-amber-960x600.png")));
+
+        window->setProperty("bottomView", 1);
+        QVERIFY(capture(QSize(1280, 720), false,
+                        QStringLiteral("drumaspro-keys-1280x720.png")));
+        QVERIFY(capture(QSize(960, 600), false,
+                        QStringLiteral("drumaspro-keys-960x600.png")));
     }
 
     void rotarySelectorsSnapOnClickAndKeyboard() {

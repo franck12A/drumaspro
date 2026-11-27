@@ -137,6 +137,19 @@ QtObject {
     readonly property int chordButtonHeight: compactMode ? 80 : 92
     readonly property int chordLedDiameter: compactMode ? 7 : 8
     readonly property int chordButtonGap: compactMode ? 3 : 4
+    readonly property color keyWhiteTop: amberMode ? "#efe6d2" : "#faf6eb"
+    readonly property color keyWhiteBottom: amberMode ? "#c9bca2" : "#d9d2c2"
+    readonly property color keyWhiteDownTop: amberMode ? "#b9a986" : "#cec7b6"
+    readonly property color keyWhiteDownBottom: amberMode ? "#d8c9a8" : "#e8e1d1"
+    readonly property color keyBlackTop: amberMode ? "#3b342a" : "#31322e"
+    readonly property color keyBlackBottom: amberMode ? "#16130e" : "#111210"
+    readonly property color keyBlackDownTop: amberMode ? "#241f17" : "#1c1d1a"
+    readonly property color keyBlackDownBottom: amberMode ? "#302920" : "#26271f"
+    readonly property color keySounding: amberMode ? "#e5aa49" : "#6f8b70"
+    readonly property color keyInk: amberMode ? "#3a3226" : "#3b3c36"
+    readonly property int pianoKeyRadius: 3
+    readonly property int pianoKeyHeight: chordButtonHeight
+    readonly property int pianoOctaveThreshold: 1100
     readonly property int meterBarWidth: compactMode ? 5 : 6
     readonly property int meterBarHeight: compactMode ? 11 : 13
     readonly property int ledBorderWidth: 1

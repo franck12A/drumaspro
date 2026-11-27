@@ -28,6 +28,7 @@ class EngineBridge final : public QObject {
     Q_PROPERTY(int selectedEffectSlot READ selectedEffectSlot NOTIFY selectedEffectSlotChanged)
     Q_PROPERTY(QString selectedEffectTypeName READ selectedEffectTypeName NOTIFY
                    selectedEffectSlotChanged)
+    Q_PROPERTY(int pianoOctave READ pianoOctave NOTIFY pianoOctaveChanged)
     Q_PROPERTY(bool running READ running NOTIFY statusChanged)
     Q_PROPERTY(int activeVoices READ activeVoices NOTIFY statusChanged)
     Q_PROPERTY(double outputPeak READ outputPeak NOTIFY statusChanged)
@@ -48,6 +49,7 @@ public:
     }
     [[nodiscard]] int selectedEffectSlot() const noexcept { return selectedEffectSlot_; }
     [[nodiscard]] QString selectedEffectTypeName() const;
+    [[nodiscard]] int pianoOctave() const noexcept { return pianoOctave_; }
     [[nodiscard]] bool running() const noexcept { return engine_.isRunning(); }
     [[nodiscard]] int activeVoices() const noexcept;
     [[nodiscard]] double outputPeak() const noexcept { return outputPeak_; }
@@ -65,6 +67,17 @@ public:
     Q_INVOKABLE bool setEffectMix(int slot, double mix);
     Q_INVOKABLE bool setEffectParameter(int slot, qulonglong id, double value);
     Q_INVOKABLE void selectEffectSlot(int slot);
+    /// Piano notes share the chord reference counts, so a note held by both a
+    /// chord and the keyboard is only released once.
+    Q_INVOKABLE bool noteOn(int note, double velocity = 0.8);
+    Q_INVOKABLE bool noteOff(int note);
+    Q_INVOKABLE void setPianoOctave(int octave);
+    Q_INVOKABLE bool shiftPianoOctave(int delta);
+    /// Semitone offset (0 = C) for a Qt key code, or -1 when the key is not part
+    /// of the one-octave computer keyboard (A W S E D F T G Y H U J K).
+    Q_INVOKABLE int semitoneForKey(int key) const;
+    /// MIDI note for a semitone offset in the current octave, clamped to 0..127.
+    Q_INVOKABLE int midiNoteForSemitone(int semitone) const;
     Q_INVOKABLE QString formatParameterValue(qulonglong id, double value) const;
     Q_INVOKABLE QString formatUnitValue(const QString& unit, double value) const;
     Q_INVOKABLE bool setChordScale(int tonicSemitones, bool naturalMinor);
@@ -77,6 +90,7 @@ Q_SIGNALS:
     void statusChanged();
     void errorChanged();
     void selectedEffectSlotChanged();
+    void pianoOctaveChanged();
 
 private Q_SLOTS:
     void refreshStatus();
@@ -103,6 +117,7 @@ private:
     std::atomic<std::uint64_t> xruns_{0};
     double outputPeak_ = 0.0;
     int selectedEffectSlot_ = 0;
+    int pianoOctave_ = 4;
     std::array<std::array<std::uint8_t, 4>, 7> chordNotes_{};
     std::array<std::uint8_t, 7> chordNoteCounts_{};
     std::array<bool, 7> chordHeld_{};

@@ -20,6 +20,10 @@ ApplicationWindow {
     property string activeChordName: "READY"
     property var activeChordRows: ({})
     property int selectedEffectSlot: 0
+    // 0 = chord pads, 1 = on-screen piano in the same strip.
+    property int bottomView: 0
+    property var soundingChordNotes: []
+    property var pianoHeldNotes: []
 
     readonly property var keyNames: [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
@@ -38,6 +42,38 @@ ApplicationWindow {
         value: window.compactLayout
     }
 
+    function refreshSoundingChordNotes() {
+        const notes = []
+        for (let row = 0; row < 7; ++row) {
+            if (!activeChordRows[row])
+                continue
+            const button = chordRepeater.itemAt(row)
+            if (!button)
+                continue
+            for (let index = 0; index < button.midiNotes.length; ++index) {
+                const note = button.midiNotes[index]
+                if (notes.indexOf(note) < 0)
+                    notes.push(note)
+            }
+        }
+        soundingChordNotes = notes
+    }
+
+    function pressPianoNote(note, velocity) {
+        if (engineBridge.noteOn(note, velocity) && pianoHeldNotes.indexOf(note) < 0)
+            pianoHeldNotes = pianoHeldNotes.concat([note])
+    }
+
+    function releasePianoNote(note) {
+        engineBridge.noteOff(note)
+        const index = pianoHeldNotes.indexOf(note)
+        if (index >= 0) {
+            const next = pianoHeldNotes.slice()
+            next.splice(index, 1)
+            pianoHeldNotes = next
+        }
+    }
+
     function playChord(row) {
         const button = chordRepeater.itemAt(row)
         if (button) {
@@ -46,6 +82,7 @@ ApplicationWindow {
             activeChordName = button.rootName + " " + button.quality
         }
         engineBridge.playChord(row)
+        refreshSoundingChordNotes()
     }
 
     function releaseChord(row) {
@@ -62,6 +99,7 @@ ApplicationWindow {
                     activeChordName = button.rootName + " " + button.quality
             }
         }
+        refreshSoundingChordNotes()
     }
 
     Item {
@@ -71,6 +109,8 @@ ApplicationWindow {
         height: 0
         focus: true
         property var heldChords: ({})
+        // Qt key code -> MIDI note for the computer keyboard piano.
+        property var heldPianoNotes: ({})
 
         function releaseHeldChords() {
             for (let row = 0; row < 7; ++row) {
@@ -81,32 +121,82 @@ ApplicationWindow {
             }
         }
 
+        function releasePianoKeys() {
+            for (const code in heldPianoNotes) {
+                const note = heldPianoNotes[code]
+                delete heldPianoNotes[code]
+                window.releasePianoNote(note)
+            }
+        }
+
+        function releaseAllKeys() {
+            releaseHeldChords()
+            releasePianoKeys()
+        }
+
         onActiveFocusChanged: {
             if (!activeFocus)
-                releaseHeldChords()
+                releaseAllKeys()
         }
 
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
+            if (window.activeFocusItem !== keyboardFocus)
+                return
+
+            // 1-7 keep playing the diatonic chords regardless of the view.
             const row = event.key >= Qt.Key_1 && event.key <= Qt.Key_7
                 ? event.key - Qt.Key_1 : -1
-            if (row < 0 || window.activeFocusItem !== keyboardFocus)
+            if (row >= 0) {
+                event.accepted = true
+                if (event.isAutoRepeat || keyboardFocus.heldChords[row])
+                    return
+                keyboardFocus.heldChords[row] = true
+                window.playChord(row)
+                return
+            }
+
+            // Z/X transpose the computer keyboard by one octave.
+            if (event.key === Qt.Key_Z || event.key === Qt.Key_X) {
+                event.accepted = true
+                if (event.isAutoRepeat)
+                    return
+                keyboardFocus.releasePianoKeys()
+                engineBridge.shiftPianoOctave(event.key === Qt.Key_Z ? -1 : 1)
+                return
+            }
+
+            const semitone = engineBridge.semitoneForKey(event.key)
+            if (semitone < 0)
                 return
             event.accepted = true
-            if (event.isAutoRepeat || keyboardFocus.heldChords[row])
+            if (event.isAutoRepeat ||
+                    keyboardFocus.heldPianoNotes[event.key] !== undefined)
                 return
-            keyboardFocus.heldChords[row] = true
-            window.playChord(row)
+            const note = engineBridge.midiNoteForSemitone(semitone)
+            if (note < 0 || note > 127)
+                return
+            keyboardFocus.heldPianoNotes[event.key] = note
+            window.pressPianoNote(note, 0.8)
         }
 
         Keys.onReleased: function(event) {
             const row = event.key >= Qt.Key_1 && event.key <= Qt.Key_7
                 ? event.key - Qt.Key_1 : -1
-            if (row < 0 || !keyboardFocus.heldChords[row])
+            if (row >= 0) {
+                if (!keyboardFocus.heldChords[row])
+                    return
+                delete keyboardFocus.heldChords[row]
+                event.accepted = true
+                window.releaseChord(row)
                 return
-            delete keyboardFocus.heldChords[row]
+            }
+            if (keyboardFocus.heldPianoNotes[event.key] === undefined)
+                return
+            const note = keyboardFocus.heldPianoNotes[event.key]
+            delete keyboardFocus.heldPianoNotes[event.key]
             event.accepted = true
-            window.releaseChord(row)
+            window.releasePianoNote(note)
         }
     }
 
@@ -267,6 +357,14 @@ ApplicationWindow {
                     label: "OUTPUT"
                     value: engineBridge.outputPeak
                     bars: 12
+                }
+
+                LcdDisplay {
+                    objectName: "octaveDisplay"
+                    Layout.alignment: Qt.AlignBottom
+                    label: "OCTAVE"
+                    value: "C" + engineBridge.pianoOctave
+                    unit: "Z / X"
                 }
 
                 ToggleButton {
@@ -443,13 +541,30 @@ ApplicationWindow {
                         }
                     }
 
-                    SectionTitle {
-                        text: "DIATONIC CHORDS"
-                        inverted: true
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.inlineGap
+
+                        SectionTitle {
+                            Layout.fillWidth: true
+                            text: "CHORDS / PIANO KEYBOARD"
+                            inverted: true
+                        }
+
+                        ToggleButton {
+                            objectName: "keysViewToggle"
+                            Layout.preferredWidth: Theme.toggleWidth
+                            Layout.preferredHeight: Theme.sectionHeight
+                            label: "KEYS"
+                            checked: window.bottomView === 1
+                            onToggled: window.bottomView = checked ? 1 : 0
+                        }
                     }
 
                     RowLayout {
+                        id: chordRow
                         Layout.fillWidth: true
+                        visible: window.bottomView === 0
                         spacing: Theme.inlineGap
 
                         Repeater {
@@ -471,6 +586,23 @@ ApplicationWindow {
                                 onReleased: window.releaseChord(index)
                                 onCanceled: window.releaseChord(index)
                             }
+                        }
+                    }
+
+                    PianoKeyboard {
+                        id: pianoKeyboard
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Theme.pianoKeyHeight
+                        visible: window.bottomView === 1
+                        lowestNote: 48
+                        octaveCount: window.width >= Theme.pianoOctaveThreshold ? 3 : 2
+                        soundingNotes: window.soundingChordNotes.concat(
+                                           window.pianoHeldNotes)
+                        onNoteOn: function(note, velocity) {
+                            window.pressPianoNote(note, velocity)
+                        }
+                        onNoteOff: function(note) {
+                            window.releasePianoNote(note)
                         }
                     }
                 }

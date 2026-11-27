@@ -1,7 +1,9 @@
 #include "EngineBridge.h"
 
 #include <QMetaObject>
+#include <QtCore/qnamespace.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
@@ -269,6 +271,81 @@ void EngineBridge::refreshEffectParameterModel() {
     }
     effectParameterModel_.setEffect(description.slots[index].effectType,
                                     description.slots[index]);
+}
+
+bool EngineBridge::noteOn(int note, double velocity) {
+    if ((!initialized_ && !commandSinkInjected_) || !std::isfinite(velocity) || note < 0 ||
+        note > 127) {
+        return false;
+    }
+    const auto midiNote = static_cast<std::uint8_t>(note);
+    const float clampedVelocity =
+        std::clamp(static_cast<float>(velocity), 0.0F, 1.0F);
+    if (noteRefCounts_[midiNote] == 0 &&
+        !commandSink_->push(core::noteOn(midiNote, clampedVelocity))) {
+        return false;
+    }
+    ++noteRefCounts_[midiNote];
+    return true;
+}
+
+bool EngineBridge::noteOff(int note) {
+    if ((!initialized_ && !commandSinkInjected_) || note < 0 || note > 127) {
+        return false;
+    }
+    const auto midiNote = static_cast<std::uint8_t>(note);
+    if (noteRefCounts_[midiNote] == 0) {
+        return true;
+    }
+    --noteRefCounts_[midiNote];
+    if (noteRefCounts_[midiNote] == 0 && !commandSink_->push(core::noteOff(midiNote))) {
+        ++noteRefCounts_[midiNote];
+        return false;
+    }
+    return true;
+}
+
+void EngineBridge::setPianoOctave(int octave) {
+    const int clamped = std::clamp(octave, 0, 8);
+    if (clamped == pianoOctave_) {
+        return;
+    }
+    pianoOctave_ = clamped;
+    Q_EMIT pianoOctaveChanged();
+}
+
+bool EngineBridge::shiftPianoOctave(int delta) {
+    const int next = std::clamp(pianoOctave_ + delta, 0, 8);
+    if (next == pianoOctave_) {
+        return false;
+    }
+    pianoOctave_ = next;
+    Q_EMIT pianoOctaveChanged();
+    return true;
+}
+
+int EngineBridge::semitoneForKey(int key) const {
+    switch (key) {
+        case Qt::Key_A: return 0;
+        case Qt::Key_W: return 1;
+        case Qt::Key_S: return 2;
+        case Qt::Key_E: return 3;
+        case Qt::Key_D: return 4;
+        case Qt::Key_F: return 5;
+        case Qt::Key_T: return 6;
+        case Qt::Key_G: return 7;
+        case Qt::Key_Y: return 8;
+        case Qt::Key_H: return 9;
+        case Qt::Key_U: return 10;
+        case Qt::Key_J: return 11;
+        case Qt::Key_K: return 12;
+        default: return -1;
+    }
+}
+
+int EngineBridge::midiNoteForSemitone(int semitone) const {
+    const int note = (pianoOctave_ + 1) * 12 + std::clamp(semitone, 0, 12);
+    return std::clamp(note, 0, 127);
 }
 
 QString EngineBridge::formatParameterValue(qulonglong id, double value) const {

@@ -9,7 +9,7 @@ o vista se marcan como pendientes en `docs/ui-checklist.md` y
 ## Estado general
 
 - Build Release con Qt: verde.
-- `ctest --preset vs2026-release`: 99/99 en verde al cerrar el bloque 2.
+- `ctest --preset vs2026-release`: 99/99 en verde al cerrar el bloque 3.
 - Árbol de trabajo: limpio tras cada commit de bloque.
 - Sin push; commits temáticos Conventional Commits sin trailers.
 
@@ -99,6 +99,44 @@ Pendiente de verificación humana: relieve y hover reales en pantalla nativa,
 halo de LED encendido, tornillos que no tapen texto, sensación de respuesta.
 Lista en `docs/ui-checklist.md`.
 
-## Bloques 3–7
+## Bloque 3 — Teclado de piano (terminado)
+
+Hecho:
+
+- `PianoKeyboard.qml`: 2 octavas desde C3 a 960×600 y 3 octavas desde 1100 px de
+  ancho; teclas blancas/negras con bisel y gradiente, hundimiento de 2 px,
+  resaltado por acento de las notas sonando, serigrafía C3/C4/C5.
+- Clic/arrastre con glissando (NotaOff de la anterior antes de la siguiente) y
+  velocity por altura vertical del clic (0.45–1.0).
+- Vista conmutable `CHORDS`/`KEYS` con un botón en el panel SYNTHESIZER. Fue la
+  única forma de mantener ambos a 1280×720 y 960×600 sin scroll; documentado.
+- API nueva del puente, testeable: `noteOn`/`noteOff` (comparten los contadores
+  de referencia con los acordes), `pianoOctave` (0..8), `shiftPianoOctave`,
+  `semitoneForKey` y `midiNoteForSemitone` (clampeo 0..127).
+- Teclado del ordenador: `A W S E D F T G Y H U J K` = C..C, `Z`/`X` octava,
+  sin auto-repeat, sin robar teclas con foco en controles, libera notas al
+  perder foco. Las teclas 1–7 siguen tocando acordes. LCD `OCTAVE` añadido.
+- Capturas nuevas de la vista de piano a 1280×720 y 960×600.
+
+Tests añadidos (dentro de `qt_ui_tests`, que la suite ejecuta como un solo
+caso): mapeo de teclas a semitonos, octava y límites MIDI, noteOn/noteOff con
+referencias compartidas acorde+piano, clic en tecla del piano (NoteOn/NoteOff),
+mapeo del teclado del ordenador, auto-repeat, cambio de octava y resaltado de un
+acorde mantenido.
+
+A medias / limitaciones:
+
+- La velocity por altura de clic solo aplica al ratón; el teclado del ordenador
+  usa una velocity fija de 0.8 porque un teclado no tiene presión.
+- El resaltado solo pinta notas dentro del rango visible (C3..B5 con tres
+  octavas, C3..B4 con dos); los acordes actuales caen dentro, pero un patch
+  futuro con notas más graves o agudas no se vería en el teclado.
+- No hay entrada MIDI externa (bloque 7d, no realizado).
+
+Verificación humana pendiente: sonido del piano y glissando, sensación de
+velocity, resaltado y que la franja no se desplace al conmutar. Lista en
+`docs/ui-checklist.md`.
+
+## Bloques 4–7
 
 Pendientes al escribir esta entrada.

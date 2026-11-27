@@ -67,12 +67,20 @@ Si `cmake` no está en el `PATH`, usa el que viene con Visual Studio:
 ```
 
 La UI permite elegir patch, tonalidad mayor/menor, tocar acordes manteniendo el
-botón pulsado, controlar los parámetros del sintetizador y editar los seis slots
-de efectos. Al seleccionar un slot, la franja inferior muestra sus parámetros
-reales (registro, rango, unidad y curva) para moverlos en vivo.
+botón pulsado, tocar el piano en pantalla o desde el teclado del ordenador,
+controlar los parámetros del sintetizador y editar los seis slots de efectos. Al
+seleccionar un slot, la franja inferior muestra sus parámetros reales (registro,
+rango, unidad y curva) para moverlos en vivo.
 
-- `A S D F G H J` tocan C4 D4 E4 F4 G4 A4 B4 (notas de 400 ms por pulsación: una
-  consola no envía eventos de "tecla soltada").
+- `A W S E D F T G Y H U J K` tocan una octava cromática desde C (C C# D D#
+  E F F# G G# A A# B C); `Z` / `X` bajan y suben la octava y el LCD muestra la
+  octava actual. Sin auto-repeat y sin interceptar teclas de controles
+  enfocados.
+- El botón `KEYS` cambia la franja de acordes por el piano en pantalla: dos
+  octavas desde C3 a 960×600 y tres desde 1100 px de ancho. Clic y arrastre
+  hacen glissando y la altura del clic ajusta la velocity.
+- En la consola, `A S D F G H J` tocan C4 D4 E4 F4 G4 A4 B4 (notas de 400 ms por
+  pulsación: una consola no envía eventos de "tecla soltada").
 - `F1` / `F2` / `F3` eligen Pad, Pluck o Keys.
 - `1` / `2` / `3` eligen el parámetro del sintetizador: cutoff, resonancia o
   release.
@@ -111,8 +119,10 @@ limitador**, incluido un swap) y un benchmark de CPU que imprime el porcentaje
 del presupuesto de bloque; además, teoría musical (calidades, inversiones,
 límites MIDI, escalas y acordes diatónicos), FFT de fundamentales, continuidad
 de cambio de acorde, niveles de oscilador en vivo, espejo de parámetros/cadena,
-modelo de parámetros de efecto, aislamiento de Qt, guardia del singleton QML y
-pruebas de modelos, carga QML y captura offscreen. La CI deja la UI Qt
+modelo de parámetros de efecto, mapeo del teclado del ordenador a MIDI, cambio
+de octava, límites 0–127, referencias compartidas entre acorde y piano,
+aislamiento de Qt, guardia del singleton QML y pruebas de modelos, carga QML y
+captura offscreen. La CI deja la UI Qt
 desactivada; para ejecutar su prueba local hay que configurar con
 `DRUMAS_BUILD_UI=ON`.
 
@@ -188,6 +198,10 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
   captura del tema ámbar.
 - [`docs/screenshots/drumaspro-amber-960x600.png`](docs/screenshots/drumaspro-amber-960x600.png) —
   captura compacta del tema ámbar.
+- [`docs/screenshots/drumaspro-keys-1280x720.png`](docs/screenshots/drumaspro-keys-1280x720.png) —
+  vista del piano en pantalla (tres octavas).
+- [`docs/screenshots/drumaspro-keys-960x600.png`](docs/screenshots/drumaspro-keys-960x600.png) —
+  vista del piano en la ventana compacta (dos octavas).
 - [`docs/rt-safety.md`](docs/rt-safety.md) — reglas del hilo de audio y cómo se
   verifican.
 - [`docs/style.md`](docs/style.md) — guía de estilo y convenciones.

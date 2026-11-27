@@ -113,6 +113,34 @@ mantienen y liberan los siete acordes diatónicos; el auto-repeat se ignora.
 Pulsa el encabezado DRUMASPRO para devolver el foco a los atajos tras usar un
 selector.
 
+Los atajos del piano (`A`..`K`, `Z`/`X`) viven en el mismo `Keys` handler que
+las teclas 1–7 y comprueban `activeFocusItem`, así que un selector o un
+`RotarySelector` enfocado conserva sus flechas y no dispara notas.
+
+## Piano en pantalla y teclado del ordenador
+
+La franja de acordes y el piano comparten sitio: el botón `KEYS` del panel
+SYNTHESIZER conmuta entre `CHORDS` y `KEYS`. Fue la única forma de que ambos
+caben a 1280×720 y 960×600 sin scroll; con la vista de piano abierta las teclas
+1–7 siguen tocando acordes y sus notas se resaltan sobre el teclado.
+
+`PianoKeyboard.qml` dibuja dos octavas desde C3 a 960×600 y tres a partir de
+1100 px de ancho de ventana (21 teclas blancas). Las teclas blancas y negras usan
+el mismo lenguaje de bisel y gradiente que el resto del panel, se hunden 2 px al
+pulsarlas y se pintan con el color de acento cuando suenan. El clic y el arrastre
+hacen glissando (se libera la nota anterior antes de atacar la siguiente) y la
+velocity se calcula por la altura vertical del clic (0.45 arriba, 1.0 abajo).
+Las teclas `C` llevan serigrafía de octava.
+
+El teclado del ordenador mapea `A W S E D F T G Y H U J K` a una octava
+cromática desde C, y `Z`/`X` bajan/suben la octava (0..8, con las notas
+limitadas a MIDI 0..127). El auto-repeat se ignora, las teclas no se capturan si
+el foco está en un control, y al perder el foco se liberan todas las notas
+mantenidas. El LCD `OCTAVE` muestra la octava actual (`C4`) y el recordatorio
+`Z / X`. Las notas del piano y de los acordes comparten los contadores de
+referencia del puente: una nota sostenida por un acorde y por el teclado solo se
+libera cuando ya no la necesita ninguno.
+
 ## Rendimiento
 
 La UI no tiene bucle de animación: repinta cuando cambia un valor o el tema. La

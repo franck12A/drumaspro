@@ -71,6 +71,18 @@ como verificado sin ejecutarlo.
   como manchas negras ni pierden relieve).
 - [ ] Al abrir la ventana y mover controles, la interfaz responde sin tirones
   visibles (la medición automatizada da ~3,2 ms por frame a 1280×720).
+- [ ] El botón `KEYS` cambia la franja de acordes por el piano sin desplazar el
+  resto de la ventana; a 1280×720 se ven tres octavas (C3..B5) y a 960×600 dos
+  (C3..B4), con las etiquetas C3/C4/C5 legibles.
+- [ ] Pinchar y arrastrar sobre el piano produce glissando (sin notas colgadas)
+  y la velocity cambia según la altura del clic; las teclas se hunden y las que
+  suenan quedan resaltadas.
+- [ ] Mantener un acorde con 1–7 mientras está abierta la vista de piano
+  resalta sus notas; al soltarlo desaparece el resaltado.
+- [ ] `A W S E D F T G Y H U J K` suenan C..C; `Z`/`X` cambian la octava, el LCD
+  `OCTAVE` la refleja y la nota limite no supera MIDI 127.
+- [ ] El auto-repeat no dispara notas extra y, al enfocar un selector o al
+  perder el foco de la ventana, no quedan notas sonando.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana

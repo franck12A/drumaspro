@@ -31,6 +31,7 @@ qt_add_qml_module(drumaspro_qt
         Selector.qml
         SectionTitle.qml
         Screw.qml
+        PianoKeyboard.qml
         EffectSlot.qml)
 
 target_include_directories(drumaspro_qt PRIVATE "${DRUMAS_SRC_DIR}")
