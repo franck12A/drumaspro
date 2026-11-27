@@ -22,7 +22,19 @@ siendo el de la Etapa 4. La consola permite activarlos uno a uno.
 | Chorus | `0x90665BCD` (`fx.chorus`) | DSPark `Chorus` (4 voces), mix interno a 1 |
 | Drive | `0x09D826CD` (`fx.drive`) | Propia, 2× con `dspark::Oversampling`, SVF pre/post y compensación RMS |
 | Filter | `0x9C70CE01` (`fx.filter`) | `dspark::StateVariableFilter`, LP/HP/BP |
+| Flanger | `fx.flanger` | Propia, delay fraccional modulado con feedback |
+| Phaser | `fx.phaser` | Propia, 4 all-pass de primer orden barridos por LFO |
+| Tremolo | `fx.tremolo` | Propia, LFO de amplitud con forma y offset estéreo |
+| Vibrato | `fx.vibrato` | Propia, delay corto modulado (wow de pitch) |
+| EQ | `fx.eq` | Propia, 3 bandas RBJ: shelf grave, campana media, shelf agudo |
+| Lo-Fi | `fx.lofi` | Propia: bit-depth, decimación, ruido de vinilo y wow lento |
 | Limitador maestro | `0xBD734635` (`fx.limiter`) | DSPark `Limiter`, sólo etapa maestra (no ocupa slot) |
+
+La lista de tipos vive en un solo sitio, `fx::kEffectTypeCycle`
+(`EffectTypes.h`): la fábrica, el ciclo de la consola, `EngineBridge` y el
+selector de la UI la leen de ahí. `isKnownEffectType` recorre esa lista y un test
+falla si un tipo del ciclo no lo puede construir la fábrica o si su nombre no
+coincide.
 
 ## Parámetros
 
@@ -50,9 +62,65 @@ efecto.
 | `0xBF58F22E` | `filter.cutoff` | 20..20000 | Hz | logarítmica | 4000 |
 | `0x57213419` | `filter.resonance` | 0..1 | proporción | lineal | 0.15 |
 | `0x0E267C44` | `filter.mode` | 0..2 | — (LP/HP/BP) | lineal | 0 |
+| `flanger.rate` | 0.05..5 | Hz | logarítmica | 0.25 |
+| `flanger.depth` | 0..8 | ms | lineal | 2.0 |
+| `flanger.feedback` | 0..0.9 | proporción | lineal | 0.4 |
+| `flanger.delay` | 0.5..10 | ms | lineal | 2.5 |
+| `phaser.rate` | 0.05..5 | Hz | logarítmica | 0.3 |
+| `phaser.depth` | 0..1 | proporción | lineal | 0.7 |
+| `phaser.feedback` | 0..0.9 | proporción | lineal | 0.3 |
+| `phaser.frequency` | 100..4000 | Hz | logarítmica | 700 |
+| `tremolo.rate` | 0.05..20 | Hz | logarítmica | 5 |
+| `tremolo.depth` | 0..1 | proporción | lineal | 0.5 |
+| `tremolo.shape` | 0..2 | — (seno/tri/cuadrada) | lineal | 0 |
+| `tremolo.stereo` | 0..1 | proporción | lineal | 0 |
+| `vibrato.rate` | 0.05..10 | Hz | logarítmica | 5 |
+| `vibrato.depth` | 0..5 | ms | lineal | 1.5 |
+| `vibrato.delay` | 5..20 | ms | lineal | 8 |
+| `eq.low` | −12..12 | dB | lineal | 0 |
+| `eq.mid` | −12..12 | dB | lineal | 0 |
+| `eq.high` | −12..12 | dB | lineal | 0 |
+| `eq.midFrequency` | 200..5000 | Hz | logarítmica | 1000 |
+| `lofi.bits` | 4..16 | bits | lineal | 10 |
+| `lofi.rate` | 1000..48000 | Hz | logarítmica | 24000 |
+| `lofi.noise` | 0..1 | proporción | lineal | 0.08 |
+| `lofi.wow` | 0..1 | proporción | lineal | 0.2 |
 
 El delay reserva `ChainDescription::tempoBpm` para la sincronía por BPM futura;
 en esta etapa el tiempo se expresa en milisegundos y no hay división musical.
+
+## Efectos de la Etapa 5B
+
+Los seis viven en `src/fx/ExtraEffects.h`, sin dependencia nueva, con delay
+circular de tamaño potencia de dos e interpolación lineal, y sin asignaciones
+tras `prepare()`. Todos reportan latencia 0 salvo el limitador maestro; sus
+colas (de 0 a 150 ms) solo importan para la política de bypass.
+
+- **Flanger**: delay de 0.5–10 ms barrido por un LFO de 0.05–5 Hz con
+  realimentación 0–0.9; las dos canales van desfasadas un cuarto de vuelta para
+  abrir el peine. Mezcla interna dry + wet al 0.7 para no ganar nivel.
+- **Phaser**: cuatro all-pass de primer orden por canal; el coeficiente se
+  recalcula una vez por bloque (5 ms) a partir del LFO y de `phaser.frequency`,
+  mucho más barato que un `tan()` por muestra y sin escalones audibles a esas
+  velocidades de barrido.
+- **Tremolo**: `depth = 0` deja ganancia unidad y `depth = 1` baja a silencio;
+  la forma (seno/triángulo/cuadrada) y el offset estéreo permiten paneo
+  rítmico. Profundidad y offset van suavizados.
+- **Vibrato**: delay de 5–20 ms con ±0–5 ms de modulación, leído con
+  interpolación lineal; es un efecto 100 % wet, así que la latencia que reporta
+  es 0 y la cola es el delay base.
+- **EQ**: shelves RBJ de 200 Hz y 4 kHz más una campana de Q 0.9 en
+  `eq.midFrequency`. Las ganancias se mueven con un one-pole por bloque (~30 ms
+  hasta el valor nuevo) y los coeficientes solo se recalculan cuando cambian,
+  no por muestra.
+- **Lo-Fi**: cuantización a `lofi.bits` (4–16), *sample and hold* a
+  `lofi.rate`, ruido blanco de vinilo y un wow lento (LFO de 0.4 Hz sobre un
+delay de 2 ms). La decimación **aliasea a propósito**: es el carácter del
+efecto, no un defecto del oversampling; el limitador maestro sigue acotando la
+salida. El método se eligió así porque un antialias previo a la decimación
+borraría justo el grano que se busca, y porque no añade dependencias ni memoria
+dinámica. La medida de alias de este efecto queda pendiente de una prueba FFT
+propia (ver deuda en `SESSION_STATUS.md`).
 
 ## Controles
 

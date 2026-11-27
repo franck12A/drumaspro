@@ -39,6 +39,7 @@ add_executable(
     engine/test_music_rendering.cpp
     fx/test_effect_chain.cpp
     fx/test_effects.cpp
+    fx/test_extra_effects.cpp
     engine/test_audio_graph.cpp
     engine/test_shutdown.cpp
     bridge/test_bridge.cpp)

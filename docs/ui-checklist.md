@@ -36,6 +36,10 @@ como verificado sin ejecutarlo.
 - [ ] Mover cada knob cambia el parámetro esperado sin saltos audibles.
 - [ ] Activar/bypassear los seis slots y cambiar tipos/mezcla no produce clics
   ni bloquea la interfaz.
+- [ ] El selector de tipo recorre los once efectos (reverb, delay, chorus,
+  drive, filter, flanger, phaser, tremolo, vibrato, eq, lofi) y, al elegir uno
+  nuevo, la franja inferior muestra sus parámetros reales y el nombre del slot
+  coincide.
 - [ ] Seleccionar cada slot actualiza la franja de parámetros con el tipo y los
   valores correctos; moverlos cambia el efecto sin saltos y el valor mostrado
   coincide con el oído.

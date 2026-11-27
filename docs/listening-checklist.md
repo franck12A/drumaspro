@@ -173,6 +173,26 @@ medidos están en `docs/SESSION_STATUS.md`. Aun así, el juicio final es de oíd
 - [ ] La consola muestra `Chain:` y la latencia total (240 muestras con la
       cadena por defecto) de forma coherente con el resumen al salir.
 
+## Efectos nuevos (Etapa 5B)
+
+- [ ] `N` recorre los once tipos sin huecos: reverb, delay, chorus, drive,
+      filtro, flanger, phaser, tremolo, vibrato, eq, lofi; el nombre del slot y
+      la franja de parámetros coinciden con el tipo elegido.
+- [ ] Flanger: el barrido se oye como peine que sube y baja, sin silbidos ni
+      ganancia que suba al mover `feedback`.
+- [ ] Phaser: barrido suave y continuo a velocidades lentas; con `depth` a 1 y
+      `feedback` a 0.9 no se vuelve inestable ni zumba.
+- [ ] Tremolo: con `depth` a 1 corta por completo; `shape` cuadrado se oye como
+      puerta rítmica y `stereo` aumenta el vaivén sin cancelar en mono.
+- [ ] Vibrato: el pitch oscila sin que se note el retardo; con `depth` a 5 ms
+      suena desafinado de forma evidente pero no rota.
+- [ ] EQ: +12 dB en `low` engorda sin retumbe y −12 lo adelgaza; el pico de
+      `mid` se mueve con `midFrequency` y el agudo no se vuelve estridente.
+- [ ] Lo-Fi: a 4 bits y `rate` bajo se oye crujido y suciedad de vinilo;
+      `noise` y `wow` añaden siseo y desafinación sin tapar la nota.
+- [ ] Ningún efecto nuevo hace clic al mover sus parámetros ni al cambiar de
+      tipo; el limitador no bombea con el flanger a feedback máximo.
+
 ## Pendiente también de verificación externa
 
 - [ ] GitHub Actions en verde para el commit entregado (el entorno local no

@@ -825,12 +825,20 @@ qulonglong EngineBridge::parameterId(const QString& name) const {
 }
 
 qulonglong EngineBridge::effectTypeId(int index) const noexcept {
-    constexpr std::array<fx::EffectTypeId, 5> types{
-        fx::kReverbType, fx::kDelayType, fx::kChorusType, fx::kDriveType, fx::kFilterType};
-    if (index < 0 || index >= static_cast<int>(types.size())) {
+    if (index < 0 || index >= static_cast<int>(fx::kEffectTypeCycle.size())) {
         return fx::kNoEffectType;
     }
-    return static_cast<qulonglong>(types[static_cast<std::size_t>(index)]);
+    return static_cast<qulonglong>(fx::kEffectTypeCycle[static_cast<std::size_t>(index)]);
+}
+
+QStringList EngineBridge::effectTypeNames() const {
+    QStringList names;
+    names.reserve(static_cast<qsizetype>(fx::kEffectTypeCycle.size()));
+    for (const fx::EffectTypeId type : fx::kEffectTypeCycle) {
+        const std::string_view name = fx::effectTypeName(type);
+        names.append(QString::fromUtf8(name.data(), static_cast<qsizetype>(name.size())));
+    }
+    return names;
 }
 
 int EngineBridge::activeVoices() const noexcept {

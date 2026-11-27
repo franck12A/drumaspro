@@ -10,9 +10,10 @@ ofrece controles de sintetizador, acordes diatónicos, patches y cadena de
 efectos; la aplicación de consola sigue disponible para diagnóstico y
 automatización. Ambos usan el mismo motor y cola de comandos.
 
-Lo que **no** hay todavía (fuera de alcance): nubes/atmósferas generativas,
-ritmos, arpegios, joystick, instalador, entrada MIDI externa y los efectos de la
-Etapa 5B (flanger, phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
+La cadena de efectos incluye reverb, delay, chorus, drive, filtro, flanger,
+phaser, tremolo, vibrato, EQ de tres bandas y lo-fi. Lo que **no** hay todavía
+(fuera de alcance): nubes/atmósferas generativas, ritmos, arpegios, joystick,
+instalador, entrada MIDI externa y el shimmer reverb de la Etapa 5B.
 
 ## Requisitos
 

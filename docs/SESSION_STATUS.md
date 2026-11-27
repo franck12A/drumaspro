@@ -9,10 +9,11 @@ o vista se marcan como pendientes en `docs/ui-checklist.md` y
 ## Estado general
 
 - Build Release con Qt: verde.
-- `ctest --preset vs2026-release`: **107/107** en verde (antes 99).
-  - Recuento real: **104 casos de Catch2** (`drumas_tests`), **20 slots de
-    QtTest** en `qt_ui_tests`, más 2 comprobaciones de CMake
-    (`engine_has_no_qt`, `qml_theme_singleton`).
+- `ctest --preset vs2026-release`: **114/114** en verde (antes 99).
+  - Recuento real: **111 casos de Catch2** (`drumas_tests`), **20 slots de
+    QtTest** en `qt_ui_tests` (22 PASS contando `initTestCase`/
+    `cleanupTestCase`), más 2 comprobaciones de CMake (`engine_has_no_qt`,
+    `qml_theme_singleton`).
 - Árbol de trabajo: limpio tras cada commit de bloque.
 - Sin push; commits temáticos Conventional Commits sin trailers.
 
@@ -298,6 +299,61 @@ Verificación humana pendiente: que el cambio C→Am no se oiga como reataque y
 que el latch no deje notas colgadas con el nuevo camino; ver
 `docs/ui-checklist.md` y `docs/listening-checklist.md`.
 
+## Bloque 2 — Efectos nuevos (terminado)
+
+Hecho:
+
+- `src/fx/ExtraEffects.h` con seis efectos estereo in-place, sin dependencia
+  nueva y sin asignaciones tras `prepare()`:
+  - **Flanger** (`fx.flanger`): delay fraccional 0.5–10 ms con LFO, feedback
+    0–0.9 y desfase de un cuarto de vuelta entre canales.
+  - **Phaser** (`fx.phaser`): 4 all-pass por canal; coeficiente recalculado una
+    vez por bloque.
+  - **Tremolo** (`fx.tremolo`): amplitud con forma seno/triángulo/cuadrada y
+    offset estéreo; profundidad y offset suavizados.
+  - **Vibrato** (`fx.vibrato`): delay corto modulado (±0–5 ms) con
+    interpolación lineal.
+  - **EQ** (`fx.eq`): shelves RBJ a 200 Hz y 4 kHz + campana de Q 0.9 en
+    `eq.midFrequency`; ganancias con one-pole por bloque (~30 ms) y
+    coeficientes recalculados solo al cambiar.
+  - **Lo-Fi** (`fx.lofi`): bit-depth 4–16, decimación por sample-and-hold a
+    `lofi.rate`, ruido y wow lento. La decimación aliasea a propósito (es el
+    carácter del efecto); el método está justificado en `docs/effects.md`.
+- Cada efecto tiene su `ParameterRegistry` con ids FNV-1a estables, rango,
+  unidad y curva; el inspector de la UI los muestra sin tocar QML.
+- **Una sola lista de tipos**: `fx::kEffectTypeCycle` en `EffectTypes.h` es la
+  fuente de verdad para la fábrica, el ciclo de la consola, `EngineBridge` y el
+  selector de `EffectSlot.qml` (que ahora usa `engineBridge.effectTypeNames()`).
+  `isKnownEffectType` recorre esa lista.
+
+Tests añadidos (7 casos, 2,1 M aserciones en `[fx]`): todos los tipos del ciclo
+se construyen, se llaman igual y no devuelven `none`; cada efecto nuevo es
+finito y acotado con todos sus parámetros en mínimo y máximo (120 bloques de
+seno); cero asignaciones al procesar; tremolo llega a silencio con profundidad
+1; flanger y vibrato devuelven señal después del impulso; el shelf grave del EQ
+sube 100 Hz más de 4× respecto al corte; el lo-fi a 4 bits cae en múltiplos de
+2/16.
+
+A medias / limitaciones:
+
+- No hay test FFT que mida el alias del lo-fi en dBc; el método está justificado
+  en la documentación, pero la cifra queda pendiente.
+- El phaser recalcula coeficientes por bloque (5,3 ms); a velocidades de LFO
+  altas el barrido es escalonado a nivel de bloque, inaudible en las pruebas de
+  estabilidad pero no medido con oído.
+- No hay preajustes de fábrica para los efectos nuevos: se configuran a mano.
+
+Verificación humana pendiente: timbre y musicalidad de cada efecto nuevo; nueva
+lista en `docs/listening-checklist.md`.
+
+## Bloque 4 — Una sola fuente para los tipos (parcial, adelantado)
+
+La duplicación de listas se resolvió dentro del bloque 2 con
+`fx::kEffectTypeCycle` y `EngineBridge::effectTypeNames()`; el selector de
+`EffectSlot.qml` ya no tiene su propia copia y el test de tipos falla si la
+fábrica y la lista se desincronizan. Queda pendiente revisar si
+`EffectParameterModel` necesita algo más.
+
 ## Bloques 6 y 7
 
 No iniciados: la sesión se cerró tras el bloque 5. El diseño para el diseñador
@@ -337,10 +393,10 @@ Pendiente de verificación humana (no automatizable):
 - Persistencia real de settings/patches tras cerrar y reabrir la aplicación y
   XRUNS con dispositivo de audio real.
 
-Propuesta para la próxima sesión (5B + bloques pendientes):
+Propuesta para la próxima sesión (bloques pendientes):
 
-1. Efectos restantes de 5B (flanger, phaser, tremolo, vibrato, lo-fi, shimmer,
-   EQ) con sus tests de alias/estabilidad.
+1. Shimmer reverb (pitch-shift +1 octava en el lazo) y delay sincronizado a
+   BPM; medida FFT de alias del lo-fi.
 2. `ChordOn`/`ChordOff` reales con release solapado en el motor, en vez de
    expandir acordes a notas sueltas en el bridge.
 3. Delay sincronizado por BPM y arpegiador.

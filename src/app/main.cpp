@@ -106,8 +106,7 @@ void fillSlotState(FxSlotState& slot, fx::EffectTypeId type, bool bypass, float 
     }
 }
 
-constexpr std::array<fx::EffectTypeId, 5> kEffectCycle = {
-    fx::kReverbType, fx::kDelayType, fx::kChorusType, fx::kDriveType, fx::kFilterType};
+constexpr auto& kEffectCycle = fx::kEffectTypeCycle;
 
 [[nodiscard]] std::string_view shortEffectName(fx::EffectTypeId type) noexcept {
     if (type == fx::kReverbType) return "Rvb";
@@ -115,6 +114,12 @@ constexpr std::array<fx::EffectTypeId, 5> kEffectCycle = {
     if (type == fx::kChorusType) return "Cho";
     if (type == fx::kDriveType) return "Drv";
     if (type == fx::kFilterType) return "Flt";
+    if (type == fx::kFlangerType) return "Flg";
+    if (type == fx::kPhaserType) return "Phs";
+    if (type == fx::kTremoloType) return "Trm";
+    if (type == fx::kVibratoType) return "Vib";
+    if (type == fx::kEqType) return "EQ ";
+    if (type == fx::kLoFiType) return "LoF";
     return "---";
 }
 

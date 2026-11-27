@@ -9,6 +9,7 @@
 #include "fx/DelayEffect.h"
 #include "fx/DriveEffect.h"
 #include "fx/EffectTypes.h"
+#include "fx/ExtraEffects.h"
 #include "fx/FilterEffect.h"
 #include "fx/IEffect.h"
 #include "fx/ReverbEffect.h"
@@ -27,6 +28,18 @@ namespace drumas::fx {
             return std::make_unique<DriveEffect>();
         case kFilterType:
             return std::make_unique<FilterEffect>();
+        case kFlangerType:
+            return std::make_unique<FlangerEffect>();
+        case kPhaserType:
+            return std::make_unique<PhaserEffect>();
+        case kTremoloType:
+            return std::make_unique<TremoloEffect>();
+        case kVibratoType:
+            return std::make_unique<VibratoEffect>();
+        case kEqType:
+            return std::make_unique<EqEffect>();
+        case kLoFiType:
+            return std::make_unique<LoFiEffect>();
         default:
             return nullptr;
     }
@@ -42,8 +55,12 @@ namespace drumas::fx {
 }
 
 [[nodiscard]] inline bool isKnownEffectType(EffectTypeId type) noexcept {
-    return type == kReverbType || type == kDelayType || type == kChorusType ||
-           type == kDriveType || type == kFilterType;
+    for (const EffectTypeId candidate : kEffectTypeCycle) {
+        if (candidate == type) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace drumas::fx

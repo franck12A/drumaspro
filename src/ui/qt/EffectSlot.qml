@@ -83,9 +83,9 @@ ThemeAmber {
             id: effectSelector
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.selectorHeight
-            model: ["reverb", "delay", "chorus", "drive", "filter"]
-            currentIndex: Math.max(0, ["reverb", "delay", "chorus", "drive", "filter"]
-                                      .indexOf(root.typeName))
+            // One source of truth: the cycle comes from fx::kEffectTypeCycle.
+            model: engineBridge.effectTypeNames()
+            currentIndex: Math.max(0, model.indexOf(root.typeName))
             onActivated: root.typeSelected(currentIndex)
         }
 

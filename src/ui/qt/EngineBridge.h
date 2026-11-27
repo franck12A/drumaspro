@@ -148,6 +148,9 @@ public:
     Q_INVOKABLE bool releaseChord(int row);
     Q_INVOKABLE qulonglong parameterId(const QString& name) const;
     Q_INVOKABLE qulonglong effectTypeId(int index) const noexcept;
+    /// Names in kEffectTypeCycle order: the selector and the console both read
+    /// this list instead of keeping their own copy.
+    Q_INVOKABLE QStringList effectTypeNames() const;
 
 Q_SIGNALS:
     void statusChanged();
