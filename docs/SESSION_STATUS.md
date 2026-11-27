@@ -239,3 +239,49 @@ sobrevivan a un reinicio. Listas concretas en `docs/listening-checklist.md` y
 No iniciados: la sesión se cerró tras el bloque 5. El diseño para el diseñador
 con IA y los extras (sampler, visor, atajos, MIDI) queda como propuesta de la
 próxima sesión, sin código a medias.
+
+## Resumen de la sesión
+
+Hecho y verificado automáticamente:
+
+- Bloques 0–5 completos, cada uno con build Release, `ctest` 99/99 y commits
+  temáticos (sin push).
+- UI: formato por unidad, LCD del motor, layout, skin 3D vintage, piano en
+  pantalla, teclado del ordenador, ajustes persistentes, pads manuales, latch,
+  panel SETUP, navegador de patches y archivos JSON de patch.
+- Motor: `SelectPatchData` con retirada segura de punteros; banco de 15 patches
+  con categorías; picos medidos por debajo del limitador.
+- Documentación: README, `docs/ui.md`, `docs/ui-checklist.md`,
+  `docs/listening-checklist.md` y ADR 0014 (settings/patches JSON).
+
+A medias / deuda técnica:
+
+- Bloques 6 (AI Patch Designer) y 7 (sampler, visor, atajos, MIDI) no
+  empezados; no hay ADR de IA porque no hay módulo que documentar.
+- El patch de usuario no entra en el navegador de fábrica y `SAVE` no permite
+  renombrar antes de guardar.
+- La escala de UI sigue siendo tipográfica, no geométrica.
+- El octavo pad existe en el esquema pero no en la UI.
+- El diálogo SETUP no refresca la etiqueta MANUAL/DIATONIC hasta reabrirlo.
+
+Pendiente de verificación humana (no automatizable):
+
+- Escucha de los quince patches y de cada efecto; listas en
+  `docs/listening-checklist.md`.
+- Aspecto real de las tres pieles, acentos y escala 125 % en Windows nativo;
+  lista en `docs/ui-checklist.md`.
+- Persistencia real de settings/patches tras cerrar y reabrir la aplicación y
+  XRUNS con dispositivo de audio real.
+
+Propuesta para la próxima sesión (5B + bloques pendientes):
+
+1. Efectos restantes de 5B (flanger, phaser, tremolo, vibrato, lo-fi, shimmer,
+   EQ) con sus tests de alias/estabilidad.
+2. `ChordOn`/`ChordOff` reales con release solapado en el motor, en vez de
+   expandir acordes a notas sueltas en el bridge.
+3. Delay sincronizado por BPM y arpegiador.
+4. Joystick y entrada MIDI USB detrás de una interfaz propia.
+5. Diseñador de patches con IA opt-in: primero verificar la API real del
+   proveedor y el almacenamiento de la clave (DPAPI/Credential Manager), luego
+   cliente Qt Network fuera del motor, validador contra el registro y mock
+   local para tests. No empezar por la UI.
