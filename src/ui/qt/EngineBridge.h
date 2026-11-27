@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QVariantMap>
 
+#include "PatchFile.h"
 #include "Settings.h"
 #include "bridge/ChainMirror.h"
 #include "bridge/CommandSink.h"
@@ -46,6 +47,9 @@ class EngineBridge final : public QObject {
     Q_PROPERTY(int initialKey READ initialKey CONSTANT)
     Q_PROPERTY(int initialScale READ initialScale CONSTANT)
     Q_PROPERTY(int initialPatch READ initialPatch CONSTANT)
+    Q_PROPERTY(QString currentPatchName READ currentPatchName NOTIFY patchChanged)
+    Q_PROPERTY(QString currentPatchCategory READ currentPatchCategory NOTIFY patchChanged)
+    Q_PROPERTY(bool userPatchActive READ userPatchActive NOTIFY patchChanged)
     Q_PROPERTY(bool running READ running NOTIFY statusChanged)
     Q_PROPERTY(int activeVoices READ activeVoices NOTIFY statusChanged)
     Q_PROPERTY(double outputPeak READ outputPeak NOTIFY statusChanged)
@@ -79,6 +83,9 @@ public:
     [[nodiscard]] int initialKey() const noexcept { return settings_.lastKey; }
     [[nodiscard]] int initialScale() const noexcept { return settings_.lastScale; }
     [[nodiscard]] int initialPatch() const noexcept { return settings_.lastPatch; }
+    [[nodiscard]] QString currentPatchName() const { return editingName_; }
+    [[nodiscard]] QString currentPatchCategory() const { return editingCategory_; }
+    [[nodiscard]] bool userPatchActive() const noexcept { return userPatchActive_; }
     void setThemeName(const QString& theme);
     void setAccentPreset(int preset);
     void setUiScale(int scale);
@@ -124,6 +131,15 @@ public:
     Q_INVOKABLE bool resetChordSlot(int row);
     Q_INVOKABLE bool saveSettings();
     Q_INVOKABLE QString settingsPath() const;
+    Q_INVOKABLE int patchCount() const;
+    Q_INVOKABLE QVariantMap patchInfo(int index) const;
+    Q_INVOKABLE bool loadUserPatch(const QString& filePath);
+    Q_INVOKABLE bool saveCurrentPatchToFile(const QString& filePath);
+    Q_INVOKABLE QString userPatchDirectory() const;
+    Q_INVOKABLE QStringList userPatchFiles() const;
+    Q_INVOKABLE bool deleteUserPatch(const QString& filePath);
+    Q_INVOKABLE bool duplicateUserPatch(const QString& filePath);
+    Q_INVOKABLE QString patchFileName(const QString& name) const;
     Q_INVOKABLE QString formatParameterValue(qulonglong id, double value) const;
     Q_INVOKABLE QString formatUnitValue(const QString& unit, double value) const;
     Q_INVOKABLE bool setChordScale(int tonicSemitones, bool naturalMinor);
@@ -139,6 +155,7 @@ Q_SIGNALS:
     void pianoOctaveChanged();
     void settingsChanged();
     void latchChanged();
+    void patchChanged();
 
 private Q_SLOTS:
     void refreshStatus();
@@ -146,6 +163,8 @@ private Q_SLOTS:
 private:
     void setError(QString message);
     void applyPatchToMirror(int index);
+    void applyPatchToMirror(const synth::Patch& patch);
+    void applyUserPatch(const synth::Patch& patch);
     void refreshEffectParameterModel();
     void applyChordSettings();
     bool releaseChordInternal(int row);
@@ -166,6 +185,10 @@ private:
     QTimer timer_;
     QString error_;
     AppSettings settings_{};
+    synth::Patch editingPatch_{};
+    QString editingName_;
+    QString editingCategory_;
+    bool userPatchActive_ = false;
     int latchedRow_ = -1;
     std::atomic<std::uint64_t> xruns_{0};
     double outputPeak_ = 0.0;

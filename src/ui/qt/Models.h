@@ -99,6 +99,7 @@ public:
     enum Role {
         IndexRole = Qt::UserRole + 1,
         NameRole,
+        CategoryRole,
     };
     Q_ENUM(Role)
 

@@ -9,7 +9,9 @@ qt_add_executable(drumaspro_qt
     ValueFormat.cpp
     ValueFormat.h
     Settings.cpp
-    Settings.h)
+    Settings.h
+    PatchFile.cpp
+    PatchFile.h)
 set_target_properties(drumaspro_qt PROPERTIES OUTPUT_NAME drumaspro)
 
 # The singleton property must be set before qt_add_qml_module reads the
@@ -30,6 +32,7 @@ qt_add_qml_module(drumaspro_qt
         LcdDisplay.qml
         LevelMeter.qml
         RotarySelector.qml
+        PatchBrowser.qml
         Selector.qml
         SectionTitle.qml
         Screw.qml

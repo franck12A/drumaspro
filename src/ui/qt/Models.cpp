@@ -225,11 +225,17 @@ QVariant PatchModel::data(const QModelIndex& index, int role) const {
     if (role == NameRole) {
         return fromUtf8(synth::kFactoryPatches[static_cast<std::size_t>(index.row())].name);
     }
+    if (role == CategoryRole) {
+        return fromUtf8(
+            synth::kFactoryPatches[static_cast<std::size_t>(index.row())].category);
+    }
     return {};
 }
 
 QHash<int, QByteArray> PatchModel::roleNames() const {
-    return {{IndexRole, "patchIndex"}, {NameRole, "name"}};
+    return {{IndexRole, "patchIndex"},
+            {NameRole, "name"},
+            {CategoryRole, "category"}};
 }
 
 ChainModel::ChainModel(QObject* parent) : QAbstractListModel(parent) {}

@@ -96,6 +96,22 @@ como verificado sin ejecutarlo.
 - [ ] `SEVENTHS` cambia los siete pads a séptimas y el LCD/nombres lo reflejan.
 - [ ] Tras cerrar y reabrir la app se recuperan piel, acento, escala, última
   tonalidad/modo/patch, octava y mapeo de pads.
+- [ ] El navegador de patches muestra nombre y categoría en el LCD sin
+  truncarse; `PREV`/`NEXT` recorren los quince sonidos, envuelven en los
+  extremos y respetan el filtro activo.
+- [ ] El botón de filtro recorre `ALL`/`PAD`/`PLUCK`/`LEAD`/`KEYS`/`BASS`/
+  `AMBIENT`; al filtrar, el primer `NEXT` cae dentro de la categoría y no deja
+  el LCD en un patch de otra categoría.
+- [ ] Al cargar un patch de usuario, el LCD del acorde indica `USER / <categoría>`
+  y el navegador de fábrica no se queda mostrando un nombre que no suena.
+- [ ] `SETUP > PATCH FILES`: `SAVE` escribe un JSON en
+  `%APPDATA%\Drumaspro\patches`, `LOAD` lo aplica sin reiniciar, `DUP` crea una
+  copia y `DEL` borra el archivo seleccionado; los cuatro botones actualizan la
+  lista y muestran un estado legible.
+- [ ] Un archivo de patch corrupto o con `schemaVersion` futura muestra error y
+  no deja el motor en silencio; un valor fuera de rango suena clampado.
+- [ ] A 1280×720 y 960×600 el navegador, el selector `MAJOR/NAT MIN`, `LATCH` y
+  `SETUP` caben en la cabecera del panel sin solaparse ni salirse de la ventana.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana

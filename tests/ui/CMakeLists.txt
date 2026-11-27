@@ -11,6 +11,7 @@ set(_qml_files
     "${_qml_dir}/LcdDisplay.qml"
     "${_qml_dir}/LevelMeter.qml"
     "${_qml_dir}/RotarySelector.qml"
+    "${_qml_dir}/PatchBrowser.qml"
     "${_qml_dir}/Selector.qml"
     "${_qml_dir}/SectionTitle.qml"
     "${_qml_dir}/Screw.qml"
@@ -34,7 +35,9 @@ qt_add_executable(drumas_ui_tests
     "${_qml_dir}/ValueFormat.cpp"
     "${_qml_dir}/ValueFormat.h"
     "${_qml_dir}/Settings.cpp"
-    "${_qml_dir}/Settings.h")
+    "${_qml_dir}/Settings.h"
+    "${_qml_dir}/PatchFile.cpp"
+    "${_qml_dir}/PatchFile.h")
 qt_add_qml_module(drumas_ui_tests
     URI DrumasProTests
     VERSION 1.0

@@ -53,6 +53,98 @@ por confirmar en una sesión de escucha real.
       volumen y sobre todo el brillo cambian de forma clara.
 - [ ] En acorde, el registro medio no se satura.
 
+## Banco ampliado (bloque 5)
+
+Cada patch nuevo se calibró midiendo un acorde de cuatro notas (Cmaj7) a velocity
+0.8 durante 4 s; ningún pico debe llegar al limitador (techo 0.891). Los picos
+medidos están en `docs/SESSION_STATUS.md`. Aun así, el juicio final es de oído:
+
+### Warm Pad
+
+- [ ] Ataque lento sin bombeo; el acorde se asienta y no "respira" de forma
+      incómoda con el LFO lento.
+- [ ] El brillo es cálido y redondo, no embarrado; al subir cutoff aparece aire
+      sin estridencia.
+- [ ] En un acorde cerrado (C3–B3) no hay batido metálico del unison.
+
+### Glass Pad
+
+- [ ] Timbre cristalino y brillante, pero no piercing en notas altas.
+- [ ] El ataque y el release largos no dejan cola infinita ni bombeo.
+- [ ] Las cuatro notas se distinguen; no se funden en una masa sin altura.
+
+### Dark Drone
+
+- [ ] Grave y oscuro, con el sub audible sin embarrar el rango medio.
+- [ ] El LFO muy lento mueve el filtro de forma perceptible pero no cíclica y
+      molesta.
+- [ ] No satura ni "ratea" al mantener el acorde varios segundos.
+
+### Soft Pluck
+
+- [ ] Ataque suave y decay corto; se reconoce como pulsación, no como pad.
+- [ ] Es el patch más silencioso del banco: ¿el nivel relativo es usable o hay
+      que subir `MASTER`?
+- [ ] El release corto no chasquea al soltar rápido.
+
+### Pizz Synth
+
+- [ ] Ataque inmediato y resonancia controlada; no silba ni "pía" en el decay.
+- [ ] En acorde, las notas no se enmascaran entre sí.
+
+### Lead Saw
+
+- [ ] Brillo de sierra recognoscible, sin aliasing audible en el registro alto.
+- [ ] El vibrato es sutil; no convierte el lead en un coro desafinado.
+- [ ] Con cuatro notas sigue siendo un lead, no un muro de sierras.
+
+### Square Lead
+
+- [ ] Timbre hueco/cuadrado clásico, con el ancho de pulso audible.
+- [ ] No hay zumbido de baja frecuencia ni clipping perceptible.
+- [ ] El vibrato no desestabiliza el acorde.
+
+### Organ Drawbar
+
+- [ ] Ataque y release casi instantáneos, sin clic.
+- [ ] Timbre estable y plano (órgano), sin bombeo de filtro.
+- [ ] Las notas agudas no se vuelven estridentes; el sub no embarulla.
+
+### Electric Keys
+
+- [ ] Timbre de piano eléctrico, con decay natural y sin "campana" metálica.
+- [ ] La velocity (si se prueba con ratón/piano) cambia volumen y brillo de
+      forma creíble.
+- [ ] El sustain bajo no deja la nota colgada al soltar.
+
+### Sub Bass
+
+- [ ] Fundamental grave y limpia; el sub no retumba ni satura el limitador.
+- [ ] En acorde (poco habitual para un bajo) no hay barro ni cancelación.
+- [ ] El ataque corto no chasquea.
+
+### Air Texture
+
+- [ ] Textura de aire/ruido filtrado, no un soplido estático.
+- [ ] El LFO lento y el filtro crean movimiento sin silbar.
+- [ ] El ruido no tapa las notas ni suena a "radio mal sintonizada".
+
+### Brass Stab
+
+- [ ] Ataque rápido con cuerpo de metal, sin clic.
+- [ ] El decay corto deja un stab reconocible; el release no corta en seco.
+- [ ] En acorde no resulta áspero ni distorsionado.
+
+## Archivos de patch de usuario
+
+- [ ] Guardar un patch en `SETUP > PATCH FILES > SAVE`, reiniciar y cargarlo:
+      suena igual que antes de cerrar.
+- [ ] `DUP` crea una copia y `DEL` la borra; el selector de archivos se
+      actualiza sin cerrar el diálogo.
+- [ ] Cargar un archivo editado a mano con un valor fuera de rango no rompe la
+      app y suena con el valor clampado.
+- [ ] Cargar un JSON corrupto muestra un error legible y no deja el motor mudo.
+
 ## Efectos (Etapa 5A)
 
 - [ ] Con todos los slots bypass (`Chain:` muestra `-`), el timbre y el nivel

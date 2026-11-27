@@ -179,6 +179,63 @@ Verificación humana pendiente: que la piel noche y los acentos se vean bien,
 que la escala 125 % no recorte textos, latch audible sin notas colgadas y
 persistencia real tras reiniciar. Lista en `docs/ui-checklist.md`.
 
-## Bloques 5–7
+## Bloque 5 — Banco de patches y archivos JSON (terminado)
 
-Pendientes al escribir esta entrada.
+Hecho:
+
+- `PatchFile.h/.cpp`: documento versionado (`schemaVersion: 1`) con `name`,
+  `category` y `params` usando nombres legibles del registro. Escritura atómica
+  con `QSaveFile`, carga tolerante, nombres desconocidos ignorados, valores
+  clampeados, versión futura rechazada. Carpeta
+  `%APPDATA%\Drumaspro\patches` (o `DRUMAS_PATCHES_PATH` para tests).
+- Banco ampliado de 3 a 15 patches con categoría: Pad, Pluck, Keys (los
+  originales) + Warm Pad, Glass Pad, Dark Drone, Soft Pluck, Pizz Synth, Lead
+  Saw, Square Lead, Organ Drawbar, Electric Keys, Sub Bass, Air Texture y Brass
+  Stab. `Patch` gana `category` (string_view, sigue siendo trivialmente
+  copiable).
+- Motor: `CommandType::SelectPatchData` + cola de retirada de `Patch*`. El
+  hilo de audio copia el patch y devuelve el puntero; el control lo libera en
+  `refreshStatus()`. Sin asignaciones en el callback.
+- `EngineBridge`: `loadUserPatch`, `saveCurrentPatchToFile`,
+  `userPatchDirectory`, `userPatchFiles`, `deleteUserPatch`,
+  `duplicateUserPatch`, `patchInfo`/`patchCount`, `currentPatchName/Category`,
+  `userPatchActive` y señal `patchChanged`.
+- UI: `PatchBrowser.qml` (LCD nombre/categoría, PREV/NEXT, filtro por categoría)
+  sustituye al dial de patch; la escala pasa a un `Selector` en la cabecera del
+  panel SYNTHESIZER. `SETUP > PATCH FILES` con SAVE/LOAD/DUP/DEL y estado.
+- Capturas regeneradas a 1280×720 y 960×600; el navegador y el selector de
+  escala caben sin desplazar `SETUP` fuera de la ventana.
+
+Tests añadidos: ida y vuelta completa (incluido `lfo.pitchDepth`), archivo
+corrupto, versión futura, parámetros desconocidos, clamping de cutoff, categoría
+obligatoria en cada patch de fábrica y navegador (15 opciones, NEXT y filtro).
+
+Picos medidos del acorde de 4 notas (velocity 0.8, 4 s, techo del limitador
+0.891): Pad 0.298; Pluck 0.253; Keys 0.126; Warm Pad 0.317; Glass Pad 0.154;
+Dark Drone 0.647; Soft Pluck 0.042; Pizz Synth 0.218; Lead Saw 0.255; Square
+Lead 0.328; Organ Drawbar 0.267; Electric Keys 0.142; Sub Bass 0.767; Air
+Texture 0.332; Brass Stab 0.208. Ninguno alcanza el limitador; el paso máximo
+mayor es 0.372 (Air Texture, contenido de ruido), sin discontinuidades.
+
+A medias / limitaciones:
+
+- El patch de usuario se aplica al motor pero no se añade al navegador de
+  fábrica: el LCD del acorde muestra `USER / <categoría>` y el navegador sigue
+  en el último patch de fábrica.
+- `SAVE` usa el nombre actual (de fábrica o del patch cargado); no hay campo de
+  texto para renombrar antes de guardar. `DUP` añade " Copy".
+- `Soft Pluck` queda claramente más bajo que el resto (pico 0.042): es
+  intencionado como pluck suave, pero puede requerir subir MASTER.
+- El filtro del navegador se controla con un botón cíclico; no hay lista
+  desplegable de categorías.
+
+Verificación humana pendiente: timbre y balance de los doce patches nuevos,
+recorrido del filtro, que el patch cargado sea el que suena y que los archivos
+sobrevivan a un reinicio. Listas concretas en `docs/listening-checklist.md` y
+`docs/ui-checklist.md`.
+
+## Bloques 6 y 7
+
+No iniciados: la sesión se cerró tras el bloque 5. El diseño para el diseñador
+con IA y los extras (sampler, visor, atajos, MIDI) queda como propuesta de la
+próxima sesión, sin código a medias.

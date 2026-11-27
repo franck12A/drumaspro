@@ -28,6 +28,7 @@
 #include "music/MusicTypes.h"
 #include "ui/qt/EngineBridge.h"
 #include "ui/qt/Models.h"
+#include "ui/qt/PatchFile.h"
 #include "ui/qt/Settings.h"
 
 #include <QFile>
@@ -137,7 +138,7 @@ private Q_SLOTS:
         QVERIFY(!chords.setScale(12, false));
 
         drumas::ui::PatchModel patches;
-        QCOMPARE(patches.rowCount(), 3);
+        QCOMPARE(patches.rowCount(), 15);
         QCOMPARE(patches.data(patches.index(2), drumas::ui::PatchModel::NameRole).toString(),
                  QStringLiteral("Keys"));
     }
@@ -500,7 +501,7 @@ private Q_SLOTS:
                         QStringLiteral("drumaspro-keys-960x600.png")));
     }
 
-    void rotarySelectorsSnapOnClickAndKeyboard() {
+    void patchBrowserStepsAndFilters() {
         drumas::ui::EngineBridge bridge;
         QQmlApplicationEngine qml;
         qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
@@ -513,21 +514,80 @@ private Q_SLOTS:
         window->show();
         QTest::qWait(100);
 
-        auto* patchSelector =
-            findVisualItem(window->contentItem(), QStringLiteral("patchSelector"));
-        QVERIFY(patchSelector != nullptr);
-        QCOMPARE(patchSelector->property("currentIndex").toInt(), 0);
+        auto* browser =
+            findVisualItem(window->contentItem(), QStringLiteral("patchBrowser"));
+        QVERIFY(browser != nullptr);
+        QCOMPARE(browser->property("currentIndex").toInt(), 0);
+        QCOMPARE(browser->property("optionCount").toInt(), 15);
 
-        const QPoint center = patchSelector
-            ->mapToScene(QPointF(patchSelector->width() / 2,
-                                 patchSelector->height() / 2))
-            .toPoint();
-        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center);
-        QCOMPARE(patchSelector->property("currentIndex").toInt(), 1);
+        auto* next = findVisualItem(window->contentItem(),
+                                    QStringLiteral("patchNextButton"));
+        QVERIFY(next != nullptr);
+        const QPoint nextCenter = next
+            ->mapToScene(QPointF(next->width() / 2, next->height() / 2)).toPoint();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, nextCenter);
+        QCOMPARE(browser->property("currentIndex").toInt(), 1);
 
-        patchSelector->forceActiveFocus();
+        browser->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Right);
-        QCOMPARE(patchSelector->property("currentIndex").toInt(), 2);
+        QCOMPARE(browser->property("currentIndex").toInt(), 2);
+
+        auto* filter = findVisualItem(window->contentItem(),
+                                      QStringLiteral("patchFilterButton"));
+        QVERIFY(filter != nullptr);
+        const QPoint filterCenter = filter
+            ->mapToScene(QPointF(filter->width() / 2, filter->height() / 2)).toPoint();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, filterCenter);
+        QCOMPARE(browser->property("filter").toString(), QStringLiteral("PAD"));
+    }
+
+    void patchFileRoundTripsAndRejectsBadInput() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+
+        drumas::ui::PatchDocument document;
+        document.name = QStringLiteral("Warm Pad");
+        document.category = QStringLiteral("pad");
+        document.patch = drumas::synth::kFactoryPatches[3];
+
+        const QString path = temp.filePath(QStringLiteral("warm-pad.json"));
+        QVERIFY(drumas::ui::PatchFile::save(document, path, nullptr));
+        const auto loaded = drumas::ui::PatchFile::load(path, nullptr);
+        QVERIFY(loaded.has_value());
+        QCOMPARE(loaded->name, QStringLiteral("Warm Pad"));
+        QCOMPARE(loaded->category, QStringLiteral("PAD"));
+        QCOMPARE(loaded->patch.cutoffHz, document.patch.cutoffHz);
+        QCOMPARE(loaded->patch.ampEnvelope.releaseMs,
+                 document.patch.ampEnvelope.releaseMs);
+        QCOMPARE(loaded->patch.lfoPitchDepthCents,
+                 document.patch.lfoPitchDepthCents);
+        QCOMPARE(drumas::ui::PatchFile::toJson(*loaded),
+                 drumas::ui::PatchFile::toJson(document));
+
+        const QString brokenPath = temp.filePath(QStringLiteral("broken.json"));
+        QFile broken(brokenPath);
+        QVERIFY(broken.open(QIODevice::WriteOnly));
+        broken.write("{ not json");
+        broken.close();
+        QString error;
+        QVERIFY(!drumas::ui::PatchFile::load(brokenPath, &error).has_value());
+        QVERIFY(!error.isEmpty());
+
+        QJsonObject json = drumas::ui::PatchFile::toJson(document);
+        QJsonObject params = json.value(QStringLiteral("params")).toObject();
+        params.insert(QStringLiteral("filter.cutoff"), 1.0e9);
+        params.insert(QStringLiteral("not.a.parameter"), 3.0);
+        json.insert(QStringLiteral("params"), params);
+        const auto clamped = drumas::ui::PatchFile::fromJson(json, nullptr);
+        QVERIFY(clamped.has_value());
+        drumas::core::ParameterRegistry registry;
+        QVERIFY(drumas::synth::registerSynthParameters(registry));
+        QCOMPARE(clamped->patch.cutoffHz,
+                 registry.find(drumas::synth::kFilterCutoff)->maxValue);
+
+        QJsonObject future = json;
+        future.insert(QStringLiteral("schemaVersion"), 99);
+        QVERIFY(!drumas::ui::PatchFile::fromJson(future, nullptr).has_value());
     }
 
     void qmlControlsReceiveResponsiveGeometry() {
@@ -642,10 +702,10 @@ private Q_SLOTS:
             compareCommandBatches(buttonReleaseBatch, keyReleaseBatch);
         }
 
-        auto* patchSelector =
-            findVisualItem(window->contentItem(), QStringLiteral("patchSelector"));
-        QVERIFY(patchSelector != nullptr);
-        patchSelector->forceActiveFocus();
+        auto* browser =
+            findVisualItem(window->contentItem(), QStringLiteral("patchBrowser"));
+        QVERIFY(browser != nullptr);
+        browser->forceActiveFocus();
         sink.batches.clear();
         QTest::keyPress(window, Qt::Key_2);
         QTest::keyRelease(window, Qt::Key_2);
@@ -663,7 +723,7 @@ private Q_SLOTS:
         sink.batches.clear();
         QTest::keyPress(window, Qt::Key_2);
         QCOMPARE(sink.batches.size(), std::size_t{1});
-        patchSelector->forceActiveFocus();
+        browser->forceActiveFocus();
         QCOMPARE(sink.batches.size(), std::size_t{2});
         QVERIFY(sink.batches.back().front().type == drumas::core::CommandType::NoteOff);
     }

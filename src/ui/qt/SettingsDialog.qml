@@ -23,6 +23,22 @@ Dialog {
     readonly property var scaleValues: [90, 100, 110, 125]
     readonly property var sensitivityValues: [75, 100, 130]
     readonly property var velocityLabels: ["LINEAR", "SOFT", "HARD"]
+    property var patchFiles: []
+    property int patchFileIndex: 0
+    property string patchStatus: ""
+
+    function refreshPatchFiles() {
+        patchFiles = engineBridge.userPatchFiles()
+        if (patchFileIndex >= patchFiles.length)
+            patchFileIndex = Math.max(0, patchFiles.length - 1)
+    }
+
+    function selectedPatchPath() {
+        return patchFileIndex >= 0 && patchFileIndex < patchFiles.length
+            ? patchFiles[patchFileIndex] : ""
+    }
+
+    onOpened: refreshPatchFiles()
 
     background: Item {}
 
@@ -247,6 +263,88 @@ Dialog {
                             onClicked: root.editChordRequested(index)
                         }
                     }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.inlineGap
+                    text: "PATCH FILES"
+                    color: Theme.mutedInk
+                    font.family: Theme.labelFont
+                    font.pixelSize: Theme.smallTextSize
+                    font.bold: true
+                }
+
+                ComboBox {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Theme.sectionHeight + 6
+                    font.family: Theme.labelFont
+                    font.pixelSize: Theme.smallTextSize
+                    model: root.patchFiles.map(function(path) {
+                        const parts = path.split(/[\\/]/)
+                        return parts[parts.length - 1]
+                    })
+                    currentIndex: root.patchFileIndex
+                    onActivated: root.patchFileIndex = index
+                }
+
+                RowLayout {
+                    spacing: Theme.inlineGap
+                    ToggleButton {
+                        Layout.preferredWidth: Theme.toggleWidth * 0.7
+                        Layout.preferredHeight: Theme.sectionHeight
+                        checkable: false
+                        label: "SAVE"
+                        onClicked: {
+                            const ok = engineBridge.saveCurrentPatchToFile("")
+                            root.patchStatus = ok ? "SAVED" : "SAVE FAILED"
+                            root.refreshPatchFiles()
+                        }
+                    }
+                    ToggleButton {
+                        Layout.preferredWidth: Theme.toggleWidth * 0.7
+                        Layout.preferredHeight: Theme.sectionHeight
+                        checkable: false
+                        label: "LOAD"
+                        onClicked: {
+                            const ok = engineBridge.loadUserPatch(
+                                root.selectedPatchPath())
+                            root.patchStatus = ok ? "LOADED: " +
+                                engineBridge.currentPatchName : "LOAD FAILED"
+                        }
+                    }
+                    ToggleButton {
+                        Layout.preferredWidth: Theme.toggleWidth * 0.7
+                        Layout.preferredHeight: Theme.sectionHeight
+                        checkable: false
+                        label: "DUP"
+                        onClicked: {
+                            root.patchStatus = engineBridge.duplicateUserPatch(
+                                root.selectedPatchPath()) ? "DUPLICATED" : "DUP FAILED"
+                            root.refreshPatchFiles()
+                        }
+                    }
+                    ToggleButton {
+                        Layout.preferredWidth: Theme.toggleWidth * 0.7
+                        Layout.preferredHeight: Theme.sectionHeight
+                        checkable: false
+                        label: "DEL"
+                        onClicked: {
+                            root.patchStatus = engineBridge.deleteUserPatch(
+                                root.selectedPatchPath()) ? "DELETED" : "DELETE FAILED"
+                            root.refreshPatchFiles()
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.patchStatus.length > 0
+                    text: root.patchStatus
+                    color: Theme.lcdInk
+                    font.family: Theme.displayFont
+                    font.pixelSize: Theme.minimumFontSize
+                    elide: Text.ElideRight
                 }
 
                 Text {

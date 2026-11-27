@@ -29,7 +29,18 @@ ApplicationWindow {
     readonly property var keyNames: [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
     ]
-    readonly property var patchNames: ["PAD", "PLUCK", "KEYS"]
+    readonly property var patchNames: {
+        const names = []
+        for (let index = 0; index < engineBridge.patchCount(); ++index)
+            names.push(engineBridge.patchInfo(index).name)
+        return names
+    }
+    readonly property var patchCategories: {
+        const categories = []
+        for (let index = 0; index < engineBridge.patchCount(); ++index)
+            categories.push(engineBridge.patchInfo(index).category)
+        return categories
+    }
 
     Binding {
         target: Theme
@@ -385,7 +396,13 @@ ApplicationWindow {
                     label: window.activeChordName
                     value: window.keyNames[window.currentKeyIndex] +
                            (window.currentModeIndex === 0 ? " MAJOR" : " NAT MIN")
-                    unit: window.patchNames[window.currentPatchIndex]
+                    unit: engineBridge.userPatchActive
+                          ? "USER / " + engineBridge.currentPatchCategory
+                          : (window.currentPatchIndex >= 0 &&
+                             window.currentPatchIndex < window.patchNames.length
+                             ? window.patchNames[window.currentPatchIndex] +
+                               " / " + window.patchCategories[window.currentPatchIndex]
+                             : "")
                 }
 
                 LcdDisplay {
@@ -452,6 +469,20 @@ ApplicationWindow {
                             inverted: true
                         }
 
+                        Selector {
+                            id: modeSelector
+                            objectName: "modeSelector"
+                            Layout.preferredWidth: Theme.selectorWidth
+                            Layout.preferredHeight: Theme.sectionHeight
+                            model: ["MAJOR", "NAT MIN"]
+                            currentIndex: window.currentModeIndex
+                            onActivated: {
+                                window.currentModeIndex = currentIndex
+                                engineBridge.setChordScale(
+                                    window.currentKeyIndex, currentIndex === 1)
+                            }
+                        }
+
                         ToggleButton {
                             objectName: "latchToggle"
                             Layout.preferredWidth: Theme.toggleWidth
@@ -486,30 +517,17 @@ ApplicationWindow {
                             Layout.alignment: Qt.AlignVCenter
                             spacing: Theme.inlineGap
 
-                            RotarySelector {
-                                id: patchSelector
-                                objectName: "patchSelector"
-                                label: "PATCH"
-                                options: window.patchNames
-                                shortOptions: ["PAD", "PLK", "KEY"]
+                            PatchBrowser {
+                                id: patchBrowser
+                                Layout.fillWidth: true
+                                names: window.patchNames
+                                categories: window.patchCategories
                                 currentIndex: window.currentPatchIndex
+                                userActive: engineBridge.userPatchActive
+                                userName: engineBridge.currentPatchName
                                 onActivated: function(index) {
                                     window.currentPatchIndex = index
                                     engineBridge.selectPatch(index)
-                                }
-                            }
-
-                            RotarySelector {
-                                id: modeSelector
-                                objectName: "modeSelector"
-                                label: "SCALE"
-                                options: ["MAJOR", "NAT MIN"]
-                                shortOptions: ["MAJ", "MIN"]
-                                currentIndex: window.currentModeIndex
-                                onActivated: function(index) {
-                                    window.currentModeIndex = index
-                                    engineBridge.setChordScale(
-                                        window.currentKeyIndex, index === 1)
                                 }
                             }
                         }

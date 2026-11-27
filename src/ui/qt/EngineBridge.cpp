@@ -1,5 +1,7 @@
 #include "EngineBridge.h"
 
+#include <QDir>
+#include <QFile>
 #include <QMetaObject>
 #include <QtCore/qnamespace.h>
 
@@ -44,6 +46,11 @@ EngineBridge::EngineBridge(QObject* parent, bridge::CommandSink* commandSink)
     (void)synth::registerSynthParameters(defaults);
     parameterMirror_.initialize(defaults);
     applyPatchToMirror(synth::kDefaultPatchIndex);
+    editingPatch_ = synth::kFactoryPatches[synth::kDefaultPatchIndex];
+    editingName_ = QString::fromUtf8(editingPatch_.name.data(),
+                                     static_cast<qsizetype>(editingPatch_.name.size()));
+    editingCategory_ = QString::fromUtf8(
+        editingPatch_.category.data(), static_cast<qsizetype>(editingPatch_.category.size()));
 
     timer_.setInterval(25);
     connect(&timer_, &QTimer::timeout, this, &EngineBridge::refreshStatus);
@@ -71,6 +78,14 @@ bool EngineBridge::start() {
                 core::selectPatch(static_cast<std::uint8_t>(initialPatch)));
         }
         applyPatchToMirror(initialPatch);
+        editingPatch_ = synth::kFactoryPatches[static_cast<std::size_t>(initialPatch)];
+        editingName_ = QString::fromUtf8(editingPatch_.name.data(),
+                                         static_cast<qsizetype>(editingPatch_.name.size()));
+        editingCategory_ = QString::fromUtf8(
+            editingPatch_.category.data(),
+            static_cast<qsizetype>(editingPatch_.category.size()));
+        userPatchActive_ = false;
+        Q_EMIT patchChanged();
     }
     if (!engine_.start()) {
         setError(QString::fromUtf8(engine_.lastError().data(),
@@ -124,16 +139,118 @@ bool EngineBridge::selectPatch(int index) {
         return false;
     }
     applyPatchToMirror(index);
+    editingPatch_ = synth::kFactoryPatches[static_cast<std::size_t>(index)];
+    editingName_ = QString::fromUtf8(editingPatch_.name.data(),
+                                     static_cast<qsizetype>(editingPatch_.name.size()));
+    editingCategory_ = QString::fromUtf8(
+        editingPatch_.category.data(), static_cast<qsizetype>(editingPatch_.category.size()));
+    userPatchActive_ = false;
+    Q_EMIT patchChanged();
     settings_.lastPatch = index;
     persistSettings();
     return true;
+}
+
+int EngineBridge::patchCount() const { return synth::kFactoryPatchCount; }
+
+QVariantMap EngineBridge::patchInfo(int index) const {
+    if (index < 0 || index >= synth::kFactoryPatchCount) {
+        return {};
+    }
+    const synth::Patch& patch = synth::kFactoryPatches[static_cast<std::size_t>(index)];
+    return {{QStringLiteral("index"), index},
+            {QStringLiteral("name"),
+             QString::fromUtf8(patch.name.data(), static_cast<qsizetype>(patch.name.size()))},
+            {QStringLiteral("category"),
+             QString::fromUtf8(patch.category.data(),
+                               static_cast<qsizetype>(patch.category.size()))}};
+}
+
+bool EngineBridge::loadUserPatch(const QString& filePath) {
+    if (!initialized_) {
+        return false;
+    }
+    QString error;
+    const std::optional<PatchDocument> document = PatchFile::load(filePath, &error);
+    if (!document.has_value()) {
+        setError(error);
+        return false;
+    }
+    auto* copy = new synth::Patch(document->patch);
+    if (!commandSink_->push(core::selectPatchData(
+            reinterpret_cast<std::uintptr_t>(copy)))) {
+        delete copy;
+        setError(QStringLiteral("patch command queue is full"));
+        return false;
+    }
+    applyPatchToMirror(document->patch);
+    editingPatch_ = document->patch;
+    editingName_ = document->name;
+    editingCategory_ = document->category;
+    userPatchActive_ = true;
+    setError({});
+    Q_EMIT patchChanged();
+    return true;
+}
+
+bool EngineBridge::saveCurrentPatchToFile(const QString& filePath) {
+    QString path = filePath;
+    if (path.isEmpty()) {
+        path = QDir(userPatchDirectory()).filePath(patchFileName(editingName_));
+    }
+    QString error;
+    const PatchDocument document{editingName_, editingCategory_, editingPatch_};
+    if (!PatchFile::save(document, path, &error)) {
+        setError(error);
+        return false;
+    }
+    setError({});
+    return true;
+}
+
+QString EngineBridge::userPatchDirectory() const { return PatchFile::directory(); }
+
+QStringList EngineBridge::userPatchFiles() const { return PatchFile::listFiles(); }
+
+bool EngineBridge::deleteUserPatch(const QString& filePath) {
+    if (filePath.isEmpty() || !QFile::remove(filePath)) {
+        setError(QStringLiteral("patch file cannot be deleted"));
+        return false;
+    }
+    setError({});
+    return true;
+}
+
+bool EngineBridge::duplicateUserPatch(const QString& filePath) {
+    QString error;
+    const std::optional<PatchDocument> document = PatchFile::load(filePath, &error);
+    if (!document.has_value()) {
+        setError(error);
+        return false;
+    }
+    PatchDocument copy = *document;
+    copy.name = copy.name + QStringLiteral(" Copy");
+    const QString path = QDir(userPatchDirectory()).filePath(patchFileName(copy.name));
+    if (!PatchFile::save(copy, path, &error)) {
+        setError(error);
+        return false;
+    }
+    setError({});
+    return true;
+}
+
+QString EngineBridge::patchFileName(const QString& name) const {
+    return PatchFile::fileNameFor(name);
 }
 
 void EngineBridge::applyPatchToMirror(int index) {
     if (index < 0 || index >= synth::kFactoryPatchCount) {
         return;
     }
-    const synth::Patch& patch = synth::kFactoryPatches[static_cast<std::size_t>(index)];
+    applyPatchToMirror(synth::kFactoryPatches[static_cast<std::size_t>(index)]);
+}
+
+void EngineBridge::applyPatchToMirror(const synth::Patch& patch) {
     const auto set = [this](core::ParameterId id, float value) {
         (void)parameterMirror_.set(id, value);
     };
@@ -763,6 +880,10 @@ void EngineBridge::refreshStatus() {
         fx::IEffect* retired = nullptr;
         while (synth_.takeRetiredEffect(retired)) {
             delete retired;
+        }
+        const synth::Patch* retiredPatch = nullptr;
+        while (synth_.takeRetiredPatch(retiredPatch)) {
+            delete retiredPatch;
         }
     }
     const engine::AudioGraph::Stats stats = engine_.stats();

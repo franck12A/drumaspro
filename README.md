@@ -10,9 +10,9 @@ ofrece controles de sintetizador, acordes diatónicos, patches y cadena de
 efectos; la aplicación de consola sigue disponible para diagnóstico y
 automatización. Ambos usan el mismo motor y cola de comandos.
 
-Lo que **no** hay todavía (fuera de alcance): presets, atmósferas,
-ritmos, arpegios, joystick, instalador y los efectos de la Etapa 5B (flanger,
-phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
+Lo que **no** hay todavía (fuera de alcance): nubes/atmósferas generativas,
+ritmos, arpegios, joystick, instalador, entrada MIDI externa y los efectos de la
+Etapa 5B (flanger, phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
 
 ## Requisitos
 
@@ -66,9 +66,12 @@ Si `cmake` no está en el `PATH`, usa el que viene con Visual Studio:
 .\build\vs2026\src\app\Debug\drumaspro_console.exe --buffer=128 --rate=48000
 ```
 
-La UI permite elegir patch, tonalidad mayor/menor, tocar acordes manteniendo el
-botón pulsado, tocar el piano en pantalla o desde el teclado del ordenador,
-controlar los parámetros del sintetizador y editar los seis slots de efectos. Al
+La UI permite elegir entre quince patches de fábrica (PAD, PLUCK, LEAD, KEYS,
+BASS, AMBIENT) con un navegador por categorías, guardar/cargar/duplicar/borrar
+patches de usuario en JSON, elegir tonalidad mayor/menor, tocar acordes
+manteniendo el botón pulsado, tocar el piano en pantalla o desde el teclado del
+ordenador, controlar los parámetros del sintetizador y editar los seis slots de
+efectos. Al
 seleccionar un slot, la franja inferior muestra sus parámetros reales (registro,
 rango, unidad y curva) para moverlos en vivo.
 
@@ -80,6 +83,12 @@ defecto, séptimas diatónicas, último tono/escala/patch y el mapeo de los pads
 Cada pad puede ser diatónico automático o manual (raíz, calidad, inversión y
 octava) con clic derecho o desde `SETUP > CHORD PADS > EDIT`. `LATCH` mantiene el
 acorde sonando hasta pulsar otro o apagarlo, con LED.
+
+`SETUP > PATCH FILES` guarda el patch actual en
+`%APPDATA%\Drumaspro\patches\<nombre>.json` (`schemaVersion`, nombres de
+parámetro legibles como `filter.cutoff`, escritura atómica, valores fuera de
+rango clampeados, campos desconocidos ignorados) y permite cargarlo, duplicarlo
+o borrarlo. `DRUMAS_PATCHES_PATH` cambia la carpeta (lo usan los tests).
 
 - `A W S E D F T G Y H U J K` tocan una octava cromática desde C (C C# D D#
   E F F# G G# A A# B C); `Z` / `X` bajan y suben la octava y el LCD muestra la
@@ -132,8 +141,10 @@ modelo de parámetros de efecto, mapeo del teclado del ordenador a MIDI, cambio
 de octava, límites 0–127, referencias compartidas entre acorde y piano, ajustes
 (ida y vuelta, archivo corrupto/vacío/truncado, campos desconocidos, versión
 futura, rangos clampeados), pads manuales frente a diatónicos, séptimas, latch,
-aislamiento de Qt, guardia del singleton QML y pruebas de modelos, carga QML y
-captura offscreen. La CI deja la UI Qt
+aislamiento de Qt, guardia del singleton QML, ida y vuelta de patches JSON,
+archivos corruptos, versión futura, clamping de parámetros, rechazo de nombres
+desconocidos, navegador de patches y pruebas de modelos, carga QML y captura
+offscreen. La CI deja la UI Qt
 desactivada; para ejecutar su prueba local hay que configurar con
 `DRUMAS_BUILD_UI=ON`.
 

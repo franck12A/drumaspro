@@ -64,12 +64,16 @@ y oscura abajo/derecha, y el fondo usa un degradado vertical suave. Las
 útil sin aportar legibilidad.
 
 El `MASTER` vive en el panel SYNTHESIZER, a la derecha del grupo LFO, para no
-dejar un hueco muerto en la fila de parámetros. Los selectores rotativos de
-patch y escala imprimen sus posiciones alrededor del dial cuando hay como mucho
-cuatro opciones (con abreviaturas de tres o cuatro caracteres); el número de
-opciones y la posición activa siguen apareciendo bajo el dial. El LED de cada
-slot de efecto es rojo cuando está en bypass y verde cuando procesa, además del
-texto `BYPASSED`/`ACTIVE`.
+dejar un hueco muerto en la fila de parámetros. El selector de patch dejó de ser
+un dial cuando el banco creció a quince sonidos: ahora es un navegador de estilo
+hardware (`PatchBrowser.qml`) con un LCD que muestra nombre y categoría, botones
+`PREV`/`NEXT` y un botón de filtro que recorre `ALL`, `PAD`, `PLUCK`, `LEAD`,
+`KEYS`, `BASS` y `AMBIENT`. El filtro también limita el recorrido de
+`PREV`/`NEXT`, no solo la lista. La escala (`MAJOR`/`NAT MIN`) pasó a un
+`Selector` en la cabecera del panel SYNTHESIZER, junto a `LATCH` y `SETUP`;
+el `RotarySelector` sigue usándose en otros sitios con pocas opciones. El LED de
+cada slot de efecto es rojo cuando está en bypass y verde cuando procesa,
+además del texto `BYPASSED`/`ACTIVE`.
 
 Los valores se formatean por unidad en `ValueFormat.cpp`: los parámetros de
 porcentaje se guardan en 0..1 pero se muestran en 0..100 (`0.55` → `55 %`), los
@@ -105,7 +109,7 @@ pulido visual.
 
 El tema centraliza colores, tipografía, dimensiones y espaciado en
 `Theme.qml`; el control `AMBER` alterna entre la paleta predeterminada y la
-ámbar. El layout se compacta para el mínimo de 960×600 y mantiene scroll como
+ámbar, y `SETUP` permite elegir cualquiera de las tres pieles y los acentos. El layout se compacta para el mínimo de 960×600 y mantiene scroll como
 respaldo para restricciones de espacio del sistema. Los controles QML usan el
 estilo `Basic` de Qt Quick Controls para que sus fondos y estados sean
 personalizables. Cuando el foco está fuera de los controles, las teclas 1–7
