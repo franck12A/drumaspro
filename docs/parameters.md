@@ -31,11 +31,11 @@ cual.
 | ID (hex) | Nombre | Rango | Unidad | Curva | Defecto | En vivo |
 |---|---|---|---|---|---|---|
 | `0xE0A7DF5C` | `osc1.waveform` | 0..3 | — | lineal | 1 (triángulo) | no |
-| `0x89CED89B` | `osc1.level` | 0..1 | proporción | lineal | 0.5 | no |
+| `0x89CED89B` | `osc1.level` | 0..1 | proporción | lineal | 0.5 | **sí** |
 | `0x59C9F136` | `osc1.detune` | −50..50 | cents | lineal | 0 | no |
 | `0xE229FE60` | `osc1.pulseWidth` | 0.05..0.95 | proporción | lineal | 0.5 | no |
 | `0xD5DBA827` | `osc2.waveform` | 0..3 | — | lineal | 1 (triángulo) | no |
-| `0x96BB6272` | `osc2.level` | 0..1 | proporción | lineal | 0.5 | no |
+| `0x96BB6272` | `osc2.level` | 0..1 | proporción | lineal | 0.5 | **sí** |
 | `0xB21057F1` | `osc2.detune` | −50..50 | cents | lineal | 0 | no |
 | `0x6AAEA6D7` | `osc2.pulseWidth` | 0.05..0.95 | proporción | lineal | 0.5 | no |
 | `0x12008F49` | `sub.level` | 0..1 | proporción | lineal | 0 | no |

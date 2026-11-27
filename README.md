@@ -17,8 +17,8 @@ phaser, tremolo, vibrato, lo-fi, shimmer, EQ).
 ## Requisitos
 
 - Windows 10/11 x64.
-- **CMake 3.21 o superior** (los presets usan `CMakePresets.json` v6; con
-  CMake 4.x se ha verificado el proyecto).
+- **CMake 3.21 o superior** (los presets usan el esquema 3 de
+  `CMakePresets.json`; con CMake 4.x se ha verificado el proyecto).
 - **MSVC con C++20**: Visual Studio 2022 (17.x) o Visual Studio 2026 (18.x).
   - DSPark 1.7.0 declara soporte probado desde MSVC 19.50 (VS 2026); VS 2022
     compila el proyecto en CI, pero es la combinación que el upstream no
@@ -67,7 +67,9 @@ Si `cmake` no está en el `PATH`, usa el que viene con Visual Studio:
 ```
 
 La UI permite elegir patch, tonalidad mayor/menor, tocar acordes manteniendo el
-botón pulsado y controlar los parámetros y seis slots de efectos.
+botón pulsado, controlar los parámetros del sintetizador y editar los seis slots
+de efectos. Al seleccionar un slot, la franja inferior muestra sus parámetros
+reales (registro, rango, unidad y curva) para moverlos en vivo.
 
 - `A S D F G H J` tocan C4 D4 E4 F4 G4 A4 B4 (notas de 400 ms por pulsación: una
   consola no envía eventos de "tecla soltada").
@@ -108,9 +110,11 @@ denormales, el grafo de audio (**cero asignaciones con 32 voces, 6 insertos y
 limitador**, incluido un swap) y un benchmark de CPU que imprime el porcentaje
 del presupuesto de bloque; además, teoría musical (calidades, inversiones,
 límites MIDI, escalas y acordes diatónicos), FFT de fundamentales, continuidad
-de cambio de acorde, espejo de parámetros/cadena, aislamiento de Qt y pruebas
-de modelos, carga QML y captura offscreen. La CI deja la UI Qt desactivada; para
-ejecutar su prueba local hay que configurar con `DRUMAS_BUILD_UI=ON`.
+de cambio de acorde, niveles de oscilador en vivo, espejo de parámetros/cadena,
+modelo de parámetros de efecto, aislamiento de Qt, guardia del singleton QML y
+pruebas de modelos, carga QML y captura offscreen. La CI deja la UI Qt
+desactivada; para ejecutar su prueba local hay que configurar con
+`DRUMAS_BUILD_UI=ON`.
 
 Mediciones reales de esta entrega:
 
@@ -203,9 +207,9 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
 - La sincronía de delay por BPM está reservada en `ChainDescription::tempoBpm`,
   pero todavía no se expone en la consola; el tiempo se edita en ms.
 - El LFO es global (una fase para todo el pool): no hay drift analógico por voz.
-- Solo cutoff, resonancia, tiempos ADSR, LFO rate/shape y master son editables
-  en vivo; el resto de parámetros de timbre requiere un patch nuevo o una nota
-  nueva.
+- Solo cutoff, resonancia, niveles de oscilador, tiempos ADSR, LFO rate/shape y
+  master son editables en vivo; el resto de parámetros de timbre requiere un
+  patch nuevo o una nota nueva.
 - La latencia mostrada por el motor es la de insertos + limitador; la latencia
   del driver es una **cota inferior** adicional y el periodo real de callback se
   imprime aparte.
@@ -215,7 +219,6 @@ es añadir una entrada a `src/synth/PatchBank.h`: no se toca el motor.
   humana; ver la checklist de la entrega de la etapa.
 - La captura QML offscreen se genera en tests y muestra los modelos; no sustituye
   la comprobación humana en una ventana nativa ni la escucha con un dispositivo.
-- El workflow de CI de GitHub Actions no se ha podido consultar desde el
-  entorno de desarrollo; la verificación local Release (`/W4 /WX`, 96/96
-  tests con Qt activada) sí está hecha. El job de CI configura
-  `DRUMAS_BUILD_UI=OFF` para que Qt siga siendo opcional.
+- La verificación local Release (`/W4 /WX`, 99/99 tests con Qt activada) está
+  hecha. El workflow de GitHub Actions configura `DRUMAS_BUILD_UI=OFF` para que
+  Qt siga siendo opcional, así que no cubre la UI ni sus capturas.

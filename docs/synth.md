@@ -59,11 +59,12 @@ Pad es ~0.30, con Pluck ~0.25 y con Keys ~0.13 (velocidad 0.8).
 - `SelectPatch` cambia el patch de las **notas siguientes**. Las voces que ya
   suenan conservan el patch que capturaron y terminan su release con él; no
   hay ningún parámetro que cambie a mitad de nota, así que no hay clic.
-- `SetParam` con los ids en vivo (cutoff, resonancia, tiempos ADSR, master)
-  actualiza un overlay `LiveParameters` que se aplica a **todas** las voces con
-  rampa de 10 ms. Una voz nueva arranca en el valor en vivo.
-- Los parámetros de timbre que no están en el overlay (forma de onda, niveles,
-  unison, profundidad de LFO) solo cambian con un patch nuevo o una nota nueva.
+- `SetParam` con los ids en vivo (cutoff, resonancia, niveles de oscilador,
+  tiempos ADSR, LFO rate/shape y master) actualiza un overlay `LiveParameters`
+  que se aplica a **todas** las voces con rampa de 10 ms. Una voz nueva arranca
+  en el valor en vivo.
+- Los parámetros de timbre que no están en el overlay (forma de onda, unison,
+  profundidad de LFO) solo cambian con un patch nuevo o una nota nueva.
 
 ## Rendimiento
 

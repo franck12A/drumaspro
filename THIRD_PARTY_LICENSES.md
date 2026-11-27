@@ -14,6 +14,7 @@ copied verbatim from the vendored `LICENSE` files, not retyped.
 | miniaudio | 0.11.26 | Public domain (Unlicense) **or** MIT No Attribution, at our choice | Audio device I/O (WASAPI) | Yes |
 | DSPark | 1.7.0 | MIT | DSP primitives (minBLEP step table, state-variable filter, ADSR, smoothing, SPSC queue, denormal guard, FFT) and the reverb/chorus/limiter effects | Yes |
 | Catch2 | 3.9.1 | Boost Software License 1.0 | Unit tests (build-time only, not distributed) | Yes |
+| Qt | 6.8.3 | LGPL v3 (dynamic linking) or commercial | Optional desktop UI (Qt Core/Gui/Qml/Quick/QuickControls2/QuickLayouts) | Yes, if distributed dynamically under LGPL terms |
 
 Notes:
 
@@ -27,6 +28,13 @@ Notes:
   in this file. The three `Effects/` headers added for stage 5
   (`AlgorithmicReverb.h`, `Chorus.h`, `Limiter.h`) are under the same MIT
   license; hashes are recorded in `third_party/README.md`.
+- Qt is not vendored: it is an optional system dependency linked dynamically.
+  The UI target is built only with `DRUMAS_BUILD_UI=ON`; `drumaspro_console`
+  does not link Qt. Distributing `drumaspro.exe` under LGPL v3 requires shipping
+  the LGPL text, keeping Qt replaceable (DLLs, no static link) and offering the
+  corresponding source for the Qt version used. The exact terms are in Qt's
+  `LICENSE.LGPLv3`; this document does not replace legal review. A commercial
+  Qt license is the alternative if closed-source static linking is desired.
 
 ## miniaudio 0.11.26
 

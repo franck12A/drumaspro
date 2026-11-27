@@ -34,14 +34,18 @@ ejecutable y abre la ventana:
 El ejecutable queda en
 `build\vs2026\src\ui\qt\Release\drumaspro.exe`. Para configurar, compilar y
 desplegar sin abrirlo, usa `.\tools\run-ui.ps1 -BuildOnly`.
+El script selecciona el backend software de Qt Quick si no se ha definido uno
+en el entorno; así usa el mismo backend con el que se producen las capturas de
+verificación.
 
 La piel predeterminada usa un panel gris-beige cálido, marcos negros y acentos
 verdes discretos; el tema ámbar/oscuro sigue disponible. El volumen principal y
 los parámetros tienen escalas impresas, perillas con estrías dibujadas,
-selectores rotativos discretos y teclas de acorde con LED rojo. La franja
-inferior reserva visualmente espacio para el joystick y un secuenciador de 16
-pasos, todavía sin lógica. Los seis efectos se muestran como módulos
-individuales con el número de slot correcto.
+selectores rotativos discretos y teclas de acorde con LED rojo. Los seis efectos
+se muestran como módulos individuales con el número de slot correcto; el slot
+seleccionado lleva borde de acento y la franja inferior es su inspector: muestra
+los parámetros publicados por el registro del efecto, con rango, unidad y curva,
+y permite moverlos en vivo. Todavía no hay joystick ni secuenciador.
 
 Las fuentes son las instaladas en el sistema (Arial Narrow/Arial para
 serigrafía y `monospace` para LCD); no se ha añadido ni
@@ -55,13 +59,17 @@ pulido visual.
   de comandos NoteOn/NoteOff y los espejos de parámetros/cadena; no conoce Qt.
 - `EngineBridge` es la única fachada QObject. Su `QTimer` refresca el estado
   cada 25 ms (40 Hz), leyendo contadores atómicos y actualizando los modelos.
-  El medidor muestra el pico real de la salida con decaimiento; las voces
-  activas permanecen indicadas aparte en el LCD del motor.
-- Los modelos de parámetros, patches, cadena y acordes alimentan los
-  componentes QML. Un cambio de efecto prepara el objeto en el hilo de control
-  antes de transferir su propiedad por la cola.
+  El medidor muestra el pico real de la salida con decaimiento; el LCD del
+  motor indica las voces activas en su rótulo y los XRUNS acumulados junto al
+  estado.
+- Los modelos de parámetros, patches, cadena, parámetros de efecto y acordes
+  alimentan los componentes QML. Un cambio de efecto prepara el objeto en el
+  hilo de control antes de transferir su propiedad por la cola; sus valores por
+  defecto se copian al espejo para que el inspector muestre lo que suena.
 - Un acorde se encola entero o no se encola. Si no hay capacidad para todas sus
-  notas, se descarta y se cuenta; la UI no bloquea el hilo de audio.
+  notas, se descarta y se cuenta; la UI no bloquea el hilo de audio. Las notas
+  compartidas entre acordes mantenidos se contabilizan: liberar un acorde no
+  corta una nota que otro sigue usando, y la nota común no se reataca.
 
 El tema centraliza colores, tipografía, dimensiones y espaciado en
 `Theme.qml`; el control `AMBER` alterna entre la paleta predeterminada y la
@@ -77,9 +85,11 @@ selector.
 
 Con `DRUMAS_BUILD_UI=ON`, `ctest --preset vs2026-release` incluye `qt_ui_tests`.
 Ese test carga la pantalla en la plataforma `offscreen`, comprueba los modelos
-y compara los batches enviados por botones y atajos; también guarda capturas a
-1280×720 y 960×600 en ambos temas para inspección. No abre un dispositivo de
-audio. Las imágenes son evidencia de render QML y no certifican el aspecto en
+(incluido el registro de parámetros de cada efecto y la selección de slot) y
+compara los batches enviados por botones y atajos; también guarda capturas a
+1280×720 y 960×600 en ambos temas para inspección. La prueba `qml_theme_singleton`
+inspecciona el `qmldir` que CMake genera para la aplicación y falla si `Theme`
+deja de registrarse como singleton. No se abre un dispositivo de audio. Las imágenes son evidencia de render QML y no certifican el aspecto en
 una ventana nativa ni la calidad sonora. La revisión manual de audio/dispositivo sigue pendiente; véase
 [`ui-checklist.md`](./ui-checklist.md).
 

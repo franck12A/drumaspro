@@ -18,8 +18,8 @@ como verificado sin ejecutarlo.
 
 ## Comprobaciones manuales
 
-- [ ] El estado del motor pasa a `ONLINE`; XRUNS permanece en cero al dejar la
-  interfaz abierta y mover controles.
+- [ ] El estado del motor pasa a `ONLINE`; el LCD muestra voces activas y
+  XRUNS, que permanece en cero al dejar la interfaz abierta y mover controles.
 - [ ] Cambiar patch, tonalidad y modo actualiza el contenido mostrado sin
   desincronizar los modelos.
 - [ ] Mantener pulsado cada botón de acorde produce el acorde indicado y al
@@ -27,11 +27,16 @@ como verificado sin ejecutarlo.
   como el de las teclas 1–7.
 - [ ] Las teclas 1–7 producen los mismos acordes; auto-repeat no dispara notas
   adicionales y los controles enfocados conservan sus teclas.
+- [ ] Mantener dos acordes con notas comunes (por ejemplo C y Em) no reataca la
+  nota compartida ni la corta al soltar el primero.
 - [ ] El medidor responde al nivel de salida y cae gradualmente al terminar el
   sonido; el LCD indica por separado las voces activas.
 - [ ] Mover cada knob cambia el parámetro esperado sin saltos audibles.
 - [ ] Activar/bypassear los seis slots y cambiar tipos/mezcla no produce clics
   ni bloquea la interfaz.
+- [ ] Seleccionar cada slot actualiza la franja de parámetros con el tipo y los
+  valores correctos; moverlos cambia el efecto sin saltos y el valor mostrado
+  coincide con el oído.
 - [ ] Bloquear o arrastrar la ventana no causa glitches audibles ni deja el
   motor en un estado incoherente.
 - [ ] En el tema predeterminado, el panel gris-beige, los marcos negros, la
@@ -39,8 +44,9 @@ como verificado sin ejecutarlo.
   tema ámbar conserva contraste equivalente.
 - [ ] En 1280×720 y 960×600 no hay texto cortado, glifos vacíos, controles
   solapados ni contenido fuera de la ventana.
-- [ ] El espacio del joystick y del secuenciador se percibe como reservado; no
-  aparenta ser un control funcional.
+- [ ] La franja inferior no se confunde con un adorno: sus deslizadores
+  responden al clic, al arrastre y a la rueda, y el slot seleccionado se
+  distingue con el borde de acento.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana

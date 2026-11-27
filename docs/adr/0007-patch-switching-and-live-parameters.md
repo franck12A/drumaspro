@@ -34,6 +34,7 @@ El processor mantiene `LiveParameters` con los valores que un `SetParam` puede
 mover sobre voces ya sonando:
 
 - `filter.cutoff` y `filter.resonance`, con rampa de 10 ms por voz;
+- `osc1.level` y `osc2.level`, con una rampa independiente por voz;
 - los tiempos ADSR de amplitud y de filtro, recalculando las pendientes de la
   envolvente (la etapa actual continúa desde el nivel que tenía);
 - `master.gain`, como hasta ahora, suavizado.
@@ -47,9 +48,9 @@ los aplica a las voces que ya suenan: siguen con su patch capturado. El
 siguiente note-on ya usa los valores nuevos.
 
 Los parámetros de timbre que no están en el conjunto en vivo (forma de onda,
-niveles, unison, profundidad de LFO) solo cambian al cambiar de patch o al
-tocar una nota nueva. Se documenta como limitación de la etapa, no como
-comportamiento accidental.
+unison, profundidad de LFO) solo cambian al cambiar de patch o al tocar una nota
+nueva. Se documenta como limitación de la etapa, no como comportamiento
+accidental.
 
 ### 3. LFO global
 
@@ -85,3 +86,11 @@ viaja por la cola SPSC por valor, sin punteros ni asignaciones.
   vivo sin tocar la cola ni el contrato de hilos.
 - El LFO global hace que un cambio de `lfo.rate` afecte a todas las voces al
   instante; es lo deseado para un control de "modulación" del instrumento.
+
+## Enmienda (2026-11-26)
+
+Se añadieron `osc1.level` y `osc2.level` al conjunto en vivo. Cada voz aplica su
+nivel con una rampa de 10 ms, y `SelectPatch` sigue sin tocar las voces que ya
+suenan: los niveles nuevos solo llegan a las notas siguientes salvo que el
+usuario mueva el control, que es intencionalmente global. El resto del ADR
+sigue vigente.
