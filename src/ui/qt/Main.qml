@@ -19,6 +19,7 @@ ApplicationWindow {
     property int currentPatchIndex: 0
     property string activeChordName: "READY"
     property var activeChordRows: ({})
+    property int selectedEffectSlot: 0
 
     readonly property var keyNames: [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
@@ -130,12 +131,18 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: Theme.frameInset
         clip: true
-        contentWidth: availableWidth
+        contentWidth: width
+        contentHeight: contentColumn.implicitHeight
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        background: Rectangle {
+            color: Theme.clear
+        }
 
         ColumnLayout {
-            width: page.availableWidth
+            id: contentColumn
+            width: page.width
+            height: implicitHeight
             spacing: Theme.spacing
 
             RowLayout {
@@ -208,9 +215,9 @@ ApplicationWindow {
 
                 LcdDisplay {
                     objectName: "engineStatusDisplay"
-                    label: "ENGINE"
+                    label: "ENGINE / " + engineBridge.activeVoices + "V"
                     value: engineBridge.running ? "ONLINE" : "OFFLINE"
-                    unit: engineBridge.activeVoices + "V"
+                    unit: engineBridge.xruns + "XR"
                 }
 
                 LevelMeter {
@@ -452,104 +459,197 @@ ApplicationWindow {
                         required property string effectName
                         required property bool isBypassed
                         required property real effectMix
+                        objectName: "effectSlot_" + index
                         Layout.fillWidth: true
                         typeName: effectName
                         slot: index
                         bypassed: isBypassed
                         mix: effectMix
-                        onTypeSelected: engineBridge.setEffectType(
-                            slot, engineBridge.effectTypeId(index))
+                        selected: window.selectedEffectSlot === index
+                        onSelectRequested: {
+                            window.selectedEffectSlot = index
+                            engineBridge.selectEffectSlot(index)
+                        }
+                        onTypeSelected: {
+                            window.selectedEffectSlot = index
+                            engineBridge.selectEffectSlot(index)
+                            engineBridge.setEffectType(
+                                slot, engineBridge.effectTypeId(index))
+                        }
                         onRequestBypass: engineBridge.setEffectBypass(slot, bypassed)
                         onRequestMix: engineBridge.setEffectMix(slot, mix)
                     }
                 }
             }
 
-            Rectangle {
-                id: futureControls
-                objectName: "futureControlsReserved"
+            ThemeAmber {
+                id: effectParameterPanel
+                objectName: "effectParameterPanel"
                 Layout.fillWidth: true
-                Layout.preferredHeight: Theme.futureDockHeight
-                color: Theme.panelInset
-                radius: Theme.corner
-                border.color: Theme.edge
-                border.width: Theme.moduleBorderWidth
+                implicitHeight: effectParameterContent.implicitHeight + 2 * Theme.inlineGap
 
                 RowLayout {
+                    id: effectParameterContent
                     anchors.fill: parent
                     anchors.margins: Theme.inlineGap
                     spacing: Theme.spacing
 
                     Rectangle {
-                        Layout.preferredWidth: Theme.futureDockWidth
-                        Layout.fillHeight: true
-                        color: Theme.clear
-                        border.color: Theme.trim
-                        border.width: Theme.hairlineWidth
-                        radius: Theme.corner
+                        Layout.preferredWidth: slotChip.implicitWidth + 2 * Theme.groupPadding
+                        Layout.preferredHeight: Theme.sectionHeight
+                        color: Theme.sectionFill
+                        radius: Theme.corner / 2
 
                         Text {
+                            id: slotChip
                             anchors.centerIn: parent
-                            text: "JOYSTICK BAY  /  RESERVED"
-                            color: Theme.mutedInk
+                            text: "SLOT " + (window.selectedEffectSlot + 1) + " / " +
+                                  engineBridge.selectedEffectTypeName.toUpperCase()
+                            color: Theme.sectionInk
                             font.family: Theme.labelFont
-                            font.pixelSize: Theme.smallTextSize
+                            font.pixelSize: Theme.sectionSize
                             font.bold: true
+                            font.letterSpacing: Theme.serigraphyTracking
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: Theme.inlineGap
-
-                        Text {
-                            text: "16-STEP SEQUENCER  /  RESERVED"
-                            color: Theme.mutedInk
-                            font.family: Theme.labelFont
-                            font.pixelSize: Theme.smallTextSize
-                            font.bold: true
-                        }
-
-                        RowLayout {
+                    Repeater {
+                        model: engineBridge.effectParameterModel
+                        delegate: ColumnLayout {
+                            id: parameterControl
+                            required property var parameterId
+                            required property string name
+                            required property real value
+                            required property real minimum
+                            required property real maximum
+                            required property string unit
+                            required property int curve
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            spacing: Theme.inlineGap
+                            Layout.preferredWidth: 120
+                            spacing: 0
 
-                            Repeater {
-                                model: 16
-                                delegate: Rectangle {
-                                    required property int index
+                            readonly property bool logarithmic: curve === 1 && minimum > 0
+
+                            function normalizedFor(realValue) {
+                                if (maximum <= minimum)
+                                    return 0
+                                if (logarithmic) {
+                                    return Math.max(0, Math.min(1, Math.log(realValue / minimum) /
+                                                                           Math.log(maximum / minimum)))
+                                }
+                                return Math.max(0, Math.min(1,
+                                                           (realValue - minimum) /
+                                                           (maximum - minimum)))
+                            }
+
+                            function valueForNormalized(normalized) {
+                                const clamped = Math.max(0, Math.min(1, normalized))
+                                if (logarithmic)
+                                    return minimum * Math.pow(maximum / minimum, clamped)
+                                return minimum + clamped * (maximum - minimum)
+                            }
+
+                            function formatValue(realValue) {
+                                if (Math.abs(realValue) >= 1000)
+                                    return (realValue / 1000).toFixed(1) + "k"
+                                if (Math.abs(realValue) >= 100)
+                                    return realValue.toFixed(0)
+                                return realValue.toFixed(2)
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.inlineGap
+
+                                Text {
                                     Layout.fillWidth: true
-                                    Layout.preferredWidth: Theme.stepCellWidth
-                                    Layout.preferredHeight: Theme.stepCellHeight
-                                    Layout.fillHeight: true
-                                    color: Theme.panelRaised
-                                    radius: Theme.corner / 2
+                                    text: parameterControl.name.split(".").pop().toUpperCase()
+                                    color: Theme.ink
+                                    font.family: Theme.labelFont
+                                    font.pixelSize: Theme.tinySize
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: parameterControl.formatValue(parameterControl.value) +
+                                          (parameterControl.unit.length > 0
+                                               ? " " + parameterControl.unit : "")
+                                    color: Theme.mutedInk
+                                    font.family: Theme.displayFont
+                                    font.pixelSize: Theme.tinySize
+                                }
+                            }
+
+                            Item {
+                                id: parameterTrack
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Theme.sliderHeight
+                                readonly property real normalized:
+                                    parameterControl.normalizedFor(parameterControl.value)
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    height: Theme.moduleBorderWidth
+                                    color: Theme.edge
+                                }
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width * parameterTrack.normalized
+                                    height: Theme.moduleBorderWidth
+                                    color: Theme.accent
+                                }
+
+                                Rectangle {
+                                    width: Theme.toggleHeight / 2
+                                    height: width
+                                    radius: width / 2
+                                    color: Theme.accent
                                     border.color: Theme.edge
                                     border.width: Theme.hairlineWidth
+                                    x: parameterTrack.normalized *
+                                       (parameterTrack.width - width)
+                                    y: (parameterTrack.height - height) / 2
+                                }
 
-                                    Column {
-                                        anchors.centerIn: parent
-                                        spacing: Theme.inlineGap / 2
-                                        Text {
-                                            text: (index + 1).toString()
-                                            color: Theme.ink
-                                            font.family: Theme.displayFont
-                                            font.pixelSize: Theme.tinySize
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
-                                        Rectangle {
-                                            width: Theme.chordLedDiameter / 2
-                                            height: width
-                                            radius: width / 2
-                                            color: Theme.ledOff
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    function setFromX(x) {
+                                        const normalized = Math.max(
+                                            0, Math.min(1, x / width))
+                                        engineBridge.setEffectParameter(
+                                            window.selectedEffectSlot,
+                                            parameterControl.parameterId,
+                                            parameterControl.valueForNormalized(normalized))
+                                    }
+                                    onPressed: setFromX(mouse.x)
+                                    onPositionChanged: {
+                                        if (pressed)
+                                            setFromX(mouse.x)
+                                    }
+                                    onWheel: function(wheel) {
+                                        const step = wheel.angleDelta.y > 0 ? 0.02 : -0.02
+                                        const normalized = Math.max(0, Math.min(
+                                            1, parameterControl.normalizedFor(
+                                                   parameterControl.value) + step))
+                                        engineBridge.setEffectParameter(
+                                            window.selectedEffectSlot,
+                                            parameterControl.parameterId,
+                                            parameterControl.valueForNormalized(normalized))
                                     }
                                 }
                             }
                         }
+                    }
+
+                    Text {
+                        visible: engineBridge.effectParameterModel.count === 0
+                        text: "NO EDITABLE PARAMETERS"
+                        color: Theme.mutedInk
+                        font.family: Theme.labelFont
+                        font.pixelSize: Theme.smallTextSize
                     }
                 }
             }

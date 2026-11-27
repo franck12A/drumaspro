@@ -2,7 +2,11 @@
 
 #include <QString>
 
+#include <algorithm>
 #include <cstddef>
+#include <memory>
+
+#include "fx/EffectFactory.h"
 
 namespace drumas::ui {
 namespace {
@@ -124,6 +128,82 @@ void ParameterModel::setValue(core::ParameterId id, float value) {
             snapshot_.values[row].value = value;
             Q_EMIT dataChanged(index(static_cast<int>(row)), index(static_cast<int>(row)),
                                {ValueRole});
+            return;
+        }
+    }
+}
+
+EffectParameterModel::EffectParameterModel(QObject* parent) : QAbstractListModel(parent) {}
+
+int EffectParameterModel::rowCount(const QModelIndex& parent) const {
+    return parent.isValid() ? 0 : count_;
+}
+
+QVariant EffectParameterModel::data(const QModelIndex& index, int role) const {
+    if (!index.isValid() || index.row() < 0 || index.row() >= count_) {
+        return {};
+    }
+    const Row& row = rows_[static_cast<std::size_t>(index.row())];
+    switch (role) {
+        case IdRole: return static_cast<qulonglong>(row.descriptor.id);
+        case NameRole: return fromUtf8(row.descriptor.name);
+        case ValueRole: return row.value;
+        case MinimumRole: return row.descriptor.minValue;
+        case MaximumRole: return row.descriptor.maxValue;
+        case UnitRole: return unitName(row.descriptor.unit);
+        case CurveRole: return static_cast<int>(row.descriptor.curve);
+        default: return {};
+    }
+}
+
+QHash<int, QByteArray> EffectParameterModel::roleNames() const {
+    return {{IdRole, "parameterId"}, {NameRole, "name"}, {ValueRole, "value"},
+            {MinimumRole, "minimum"}, {MaximumRole, "maximum"}, {UnitRole, "unit"},
+            {CurveRole, "curve"}};
+}
+
+int EffectParameterModel::count() const noexcept { return count_; }
+
+double EffectParameterModel::valueForId(qulonglong id) const noexcept {
+    for (int row = 0; row < count_; ++row) {
+        if (rows_[static_cast<std::size_t>(row)].descriptor.id == id) {
+            return rows_[static_cast<std::size_t>(row)].value;
+        }
+    }
+    return 0.0;
+}
+
+void EffectParameterModel::setEffect(fx::EffectTypeId type,
+                                     const fx::EffectSlotDescription& description) {
+    beginResetModel();
+    count_ = 0;
+    auto effect = fx::createEffect(type);
+    if (effect != nullptr) {
+        const core::ParameterRegistry& registry = effect->parameters();
+        for (std::size_t index = 0;
+             index < registry.size() && count_ < static_cast<int>(fx::kMaxParametersPerEffect);
+             ++index) {
+            const core::ParameterDescriptor& descriptor = registry.at(index);
+            float value = descriptor.defaultValue;
+            if (const fx::EffectParameterValue* stored =
+                    fx::findParameter(description, descriptor.id)) {
+                value = stored->value;
+            }
+            rows_[static_cast<std::size_t>(count_)] = Row{descriptor, value};
+            ++count_;
+        }
+    }
+    endResetModel();
+    Q_EMIT countChanged();
+}
+
+void EffectParameterModel::setValue(core::ParameterId id, float value) {
+    for (int row = 0; row < count_; ++row) {
+        Row& candidate = rows_[static_cast<std::size_t>(row)];
+        if (candidate.descriptor.id == id) {
+            candidate.value = std::clamp(value, candidate.descriptor.minValue,
+                                         candidate.descriptor.maxValue);
+            Q_EMIT dataChanged(index(row), index(row), {ValueRole});
             return;
         }
     }

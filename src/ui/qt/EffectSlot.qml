@@ -8,25 +8,51 @@ ThemeAmber {
     property string typeName: "none"
     property bool bypassed: true
     property real mix: 0.5
+    property bool selected: false
+    signal selectRequested()
     signal typeSelected(int index)
     signal requestBypass(bool bypassed)
     signal requestMix(real mix)
 
     implicitWidth: Theme.effectSlotWidth
     implicitHeight: Theme.effectSlotHeight
+    border.color: root.selected ? Theme.accent : Theme.trim
+    border.width: root.selected ? Theme.moduleBorderWidth + 1 : Theme.moduleBorderWidth
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.inlineGap
         spacing: Theme.inlineGap
 
-        Text {
-            text: "SLOT " + (root.slot + 1)
-            color: Theme.ink
-            font.family: Theme.labelFont
-            font.pixelSize: Theme.smallTextSize
-            font.bold: true
+        Item {
+            Layout.fillWidth: true
             Layout.preferredHeight: Theme.slotLabelHeight
+
+            Text {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "SLOT " + (root.slot + 1)
+                color: root.selected ? Theme.accentBright : Theme.ink
+                font.family: Theme.labelFont
+                font.pixelSize: Theme.smallTextSize
+                font.bold: true
+            }
+
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.selected ? "EDIT" : "SELECT"
+                color: root.selected ? Theme.accent : Theme.mutedInk
+                font.family: Theme.labelFont
+                font.pixelSize: Theme.tinySize
+                font.letterSpacing: Theme.serigraphyTracking
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.selectRequested()
+            }
         }
 
         Selector {

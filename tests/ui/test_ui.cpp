@@ -132,6 +132,72 @@ private Q_SLOTS:
                  QStringLiteral("Keys"));
     }
 
+    void effectParameterModelReflectsRegistryAndSelection() {
+        drumas::fx::ChainDescription chain = drumas::fx::defaultChainDescription();
+        const auto decay = drumas::core::makeParameterId("reverb.decay");
+        chain.slots[0].parameterCount = 1;
+        chain.slots[0].parameters[0] = drumas::fx::EffectParameterValue{decay, 7.0F};
+
+        drumas::ui::EffectParameterModel parameters;
+        parameters.setEffect(drumas::fx::kReverbType, chain.slots[0]);
+        QCOMPARE(parameters.count(), 4);
+        QCOMPARE(parameters.valueForId(decay), 7.0);
+        QCOMPARE(parameters.data(parameters.index(0),
+                                 drumas::ui::EffectParameterModel::CurveRole)
+                     .toInt(),
+                 static_cast<int>(drumas::core::ParameterCurve::Logarithmic));
+
+        // Values are clamped to the effect's published range.
+        parameters.setValue(decay, 1000.0F);
+        QCOMPARE(parameters.valueForId(decay), 20.0);
+
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+        // High-bit ids must survive the QML boundary as unsigned values; the
+        // default-patch mirror is populated before the audio device starts.
+        const qulonglong cutoffId = bridge.parameterId(QStringLiteral("filter.cutoff"));
+        QCOMPARE(cutoffId,
+                 static_cast<qulonglong>(
+                     drumas::core::makeParameterId("filter.cutoff")));
+        QCOMPARE(bridge.parameterModel()->valueForId(cutoffId), 750.0);
+        QCOMPARE(bridge.parameterModel()->curveForId(cutoffId), 1);
+        QCOMPARE(bridge.selectedEffectSlot(), 0);
+        QCOMPARE(bridge.selectedEffectTypeName(), QStringLiteral("reverb"));
+        QCOMPARE(bridge.effectParameterModel()->count(), 4);
+
+        bridge.selectEffectSlot(1);
+        QCOMPARE(bridge.selectedEffectSlot(), 1);
+        QCOMPARE(bridge.selectedEffectTypeName(), QStringLiteral("delay"));
+        QCOMPARE(bridge.effectParameterModel()->count(), 4);
+    }
+
+    void overlappingChordsShareNotesWithoutRetriggering() {
+        RecordingCommandSink sink;
+        drumas::ui::EngineBridge bridge(nullptr, &sink);
+
+        QVERIFY(bridge.playChord(0));  // C major: C4 E4 G4
+        QVERIFY(bridge.playChord(2));  // E minor: E4 G4 B4
+        QCOMPARE(sink.batches.size(), std::size_t{2});
+        const auto& secondOn = sink.batches.back();
+        QCOMPARE(secondOn.size(), std::size_t{1});
+        QCOMPARE(secondOn.front().type, drumas::core::CommandType::NoteOn);
+        QCOMPARE(static_cast<int>(secondOn.front().note), 71);
+
+        // Releasing C major must only release the note no other chord holds.
+        QVERIFY(bridge.releaseChord(0));
+        const auto& releaseC = sink.batches.back();
+        QCOMPARE(releaseC.size(), std::size_t{1});
+        QCOMPARE(releaseC.front().type, drumas::core::CommandType::NoteOff);
+        QCOMPARE(static_cast<int>(releaseC.front().note), 60);
+
+        QVERIFY(bridge.releaseChord(2));
+        const auto& releaseEm = sink.batches.back();
+        QCOMPARE(releaseEm.size(), std::size_t{3});
+        QCOMPARE(static_cast<int>(releaseEm[0].note), 64);
+        QCOMPARE(static_cast<int>(releaseEm[1].note), 67);
+        QCOMPARE(static_cast<int>(releaseEm[2].note), 71);
+    }
+
     void qmlFitsRequiredWindowSizesAndCapturesBothThemes() {
         const QDir fontDirectory(
             qEnvironmentVariable("WINDIR") + QStringLiteral("/Fonts"));
@@ -153,13 +219,16 @@ private Q_SLOTS:
         auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
         QVERIFY(window != nullptr);
         window->show();
+        // Canvas-based knobs paint asynchronously; give the first frame time to
+        // settle before the 1280x720 capture, which is the first one taken.
+        QTest::qWait(200);
         QVERIFY(QDir().mkpath(QStringLiteral(DRUMAS_SCREENSHOT_DIR)));
 
         const auto capture = [window](const QSize& size, bool amber,
                                       const QString& fileName) {
             window->setProperty("amberTheme", amber);
             window->resize(size);
-            QTest::qWait(100);
+            QTest::qWait(200);
             if (window->size() != size) {
                 return false;
             }
@@ -213,6 +282,56 @@ private Q_SLOTS:
         patchSelector->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Right);
         QCOMPARE(patchSelector->property("currentIndex").toInt(), 2);
+    }
+
+    void qmlControlsReceiveResponsiveGeometry() {
+        drumas::ui::EngineBridge bridge;
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->show();
+
+        for (const QSize size : {QSize(1280, 720), QSize(960, 600)}) {
+            window->resize(size);
+            QTest::qWait(100);
+            QCOMPARE(window->size(), size);
+
+            auto* keySelector =
+                findVisualItem(window->contentItem(), QStringLiteral("keySelector"));
+            auto* chordDisplay =
+                findVisualItem(window->contentItem(), QStringLiteral("activeChordDisplay"));
+            auto* synthPanel =
+                findVisualItem(window->contentItem(), QStringLiteral("synthPanel"));
+            QVERIFY(keySelector != nullptr);
+            QVERIFY(chordDisplay != nullptr);
+            QVERIFY(synthPanel != nullptr);
+            QVERIFY(keySelector->width() >= 80);
+            QVERIFY(keySelector->height() >= 25);
+            QVERIFY(chordDisplay->width() >= 100);
+            QVERIFY(synthPanel->width() >= size.width() - 40);
+            QVERIFY(synthPanel->height() >= 240);
+
+            qreal previousChordRight = -1.0;
+            for (int row = 0; row < 7; ++row) {
+                auto* button = findVisualItem(
+                    window->contentItem(), QStringLiteral("chordButton_%1").arg(row));
+                QVERIFY(button != nullptr);
+                QVERIFY(button->width() >= 100);
+                QVERIFY(button->height() >= 70);
+                QVERIFY(button->x() >= previousChordRight);
+                previousChordRight = button->x() + button->width();
+            }
+
+            auto* effectSlot =
+                findVisualItem(window->contentItem(), QStringLiteral("effectSlot_0"));
+            QVERIFY(effectSlot != nullptr);
+            QVERIFY(effectSlot->width() >= 120);
+            QVERIFY(effectSlot->height() >= 100);
+        }
     }
 
     void chordButtonsAndKeyboardKeysSubmitMatchingHoldReleaseBatches() {

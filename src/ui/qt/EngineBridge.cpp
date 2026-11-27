@@ -5,9 +5,11 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <span>
 
 #include "core/AudioTypes.h"
 #include "fx/EffectFactory.h"
+#include "music/Chord.h"
 #include "synth/ParameterIds.h"
 
 namespace drumas::ui {
@@ -20,8 +22,10 @@ EngineBridge::EngineBridge(QObject* parent, bridge::CommandSink* commandSink)
       parameterModel_(this),
       patchModel_(this),
       chainModel_(this),
-      chordModel_(this) {
+      chordModel_(this),
+      effectParameterModel_(this) {
     chainModel_.setDescription(chainMirror_.snapshot());
+    refreshEffectParameterModel();
 
     // Populate the mirror before the audio device starts so the offline UI
     // shows the values the default patch will use instead of zeros.
@@ -65,6 +69,11 @@ void EngineBridge::shutdown() {
     if (initialized_ || engine_.isRunning()) {
         engine_.shutdown();
         initialized_ = false;
+        // The engine reset its voices: forget which chords were held so a
+        // restart does not leave the note reference counts stale.
+        chordHeld_.fill(false);
+        chordNoteCounts_.fill(0);
+        noteRefCounts_.fill(0);
         Q_EMIT statusChanged();
     }
 }
@@ -153,11 +162,20 @@ bool EngineBridge::setEffectType(int slot, qulonglong type) {
         return false;
     }
     const auto effectType = static_cast<fx::EffectTypeId>(type);
-    auto effect = fx::createPreparedEffect(
-        effectType, core::AudioSpec{core::kDefaultSampleRate, 2048, 2});
+    auto effect = fx::createPreparedEffect(effectType, engine_.graph().spec());
     if (effect == nullptr) {
         setError(QStringLiteral("Unknown or unavailable effect type"));
         return false;
+    }
+
+    // Copy the defaults while the effect is still ours: after the swap the
+    // audio thread owns it and must not be read from here.
+    std::array<core::ParameterDescriptor, fx::kMaxParametersPerEffect> defaults{};
+    std::size_t defaultCount = 0;
+    const core::ParameterRegistry& registry = effect->parameters();
+    for (std::size_t index = 0;
+         index < registry.size() && defaultCount < defaults.size(); ++index) {
+        defaults[defaultCount++] = registry.at(index);
     }
 
     const auto command = core::swapEffect(
@@ -168,7 +186,15 @@ bool EngineBridge::setEffectType(int slot, qulonglong type) {
     }
     effect.release();
     (void)chainMirror_.setEffectType(static_cast<std::size_t>(slot), effectType);
+    for (std::size_t index = 0; index < defaultCount; ++index) {
+        (void)chainMirror_.setParameter(static_cast<std::size_t>(slot), defaults[index].id,
+                                        defaults[index].defaultValue);
+    }
     chainModel_.setDescription(chainMirror_.snapshot());
+    if (slot == selectedEffectSlot_) {
+        refreshEffectParameterModel();
+        Q_EMIT selectedEffectSlotChanged();
+    }
     return true;
 }
 
@@ -208,7 +234,40 @@ bool EngineBridge::setEffectParameter(int slot, qulonglong id, double value) {
         return false;
     }
     chainModel_.setDescription(chainMirror_.snapshot());
+    if (slot == selectedEffectSlot_) {
+        effectParameterModel_.setValue(parameterId, realValue);
+    }
     return true;
+}
+
+void EngineBridge::selectEffectSlot(int slot) {
+    if (slot < 0 || slot >= static_cast<int>(fx::kEffectSlotCount) ||
+        slot == selectedEffectSlot_) {
+        return;
+    }
+    selectedEffectSlot_ = slot;
+    refreshEffectParameterModel();
+    Q_EMIT selectedEffectSlotChanged();
+}
+
+QString EngineBridge::selectedEffectTypeName() const {
+    const fx::ChainDescription description = chainMirror_.snapshot();
+    const auto index = static_cast<std::size_t>(selectedEffectSlot_);
+    if (index >= description.slots.size()) {
+        return {};
+    }
+    const std::string_view name = fx::effectTypeName(description.slots[index].effectType);
+    return QString::fromUtf8(name.data(), static_cast<qsizetype>(name.size()));
+}
+
+void EngineBridge::refreshEffectParameterModel() {
+    const fx::ChainDescription description = chainMirror_.snapshot();
+    const auto index = static_cast<std::size_t>(selectedEffectSlot_);
+    if (index >= description.slots.size()) {
+        return;
+    }
+    effectParameterModel_.setEffect(description.slots[index].effectType,
+                                    description.slots[index]);
 }
 
 bool EngineBridge::setChordScale(int tonicSemitones, bool naturalMinor) {
@@ -216,20 +275,81 @@ bool EngineBridge::setChordScale(int tonicSemitones, bool naturalMinor) {
 }
 
 bool EngineBridge::playChord(int row, double velocity) {
-    if ((!initialized_ && !commandSinkInjected_) || !std::isfinite(velocity)) {
+    if ((!initialized_ && !commandSinkInjected_) || !std::isfinite(velocity) || row < 0 ||
+        row >= static_cast<int>(chordHeld_.size())) {
         return false;
     }
     music::Chord chord;
-    return chordModel_.chordAt(row, chord) &&
-           chordExpander_.noteOn(*commandSink_, chord, static_cast<float>(velocity));
+    if (!chordModel_.chordAt(row, chord) || chordHeld_[static_cast<std::size_t>(row)]) {
+        return true;
+    }
+    const auto midiNotes = music::chordToMidiNotes(chord);
+    if (!midiNotes.has_value() || midiNotes->count > chordNotes_.front().size()) {
+        return false;
+    }
+
+    // Only send note-on for notes that no other held chord is already playing.
+    // Without this, a shared note would retrigger and its release would cut the
+    // chord that still needs it.
+    std::array<core::Command, 4> commands{};
+    std::size_t commandCount = 0;
+    for (std::size_t index = 0; index < midiNotes->count; ++index) {
+        const std::uint8_t note = midiNotes->notes[index];
+        if (noteRefCounts_[note] == 0) {
+            commands[commandCount++] = core::noteOn(note, static_cast<float>(velocity));
+        }
+    }
+    if (commandCount > 0 &&
+        !commandSink_->pushBatch(
+            std::span<const core::Command>(commands.data(), commandCount))) {
+        return false;
+    }
+
+    const auto slot = static_cast<std::size_t>(row);
+    for (std::size_t index = 0; index < midiNotes->count; ++index) {
+        const std::uint8_t note = midiNotes->notes[index];
+        ++noteRefCounts_[note];
+        chordNotes_[slot][index] = note;
+    }
+    chordNoteCounts_[slot] = midiNotes->count;
+    chordHeld_[slot] = true;
+    return true;
 }
 
 bool EngineBridge::releaseChord(int row) {
-    if (!initialized_ && !commandSinkInjected_) {
+    if ((!initialized_ && !commandSinkInjected_) || row < 0 ||
+        row >= static_cast<int>(chordHeld_.size())) {
         return false;
     }
-    music::Chord chord;
-    return chordModel_.chordAt(row, chord) && chordExpander_.noteOff(*commandSink_, chord);
+    const auto slot = static_cast<std::size_t>(row);
+    if (!chordHeld_[slot]) {
+        return true;
+    }
+
+    std::array<core::Command, 4> commands{};
+    std::size_t commandCount = 0;
+    for (std::size_t index = 0; index < chordNoteCounts_[slot]; ++index) {
+        const std::uint8_t note = chordNotes_[slot][index];
+        if (noteRefCounts_[note] == 0) {
+            continue;
+        }
+        --noteRefCounts_[note];
+        if (noteRefCounts_[note] == 0) {
+            commands[commandCount++] = core::noteOff(note);
+        }
+    }
+    if (commandCount > 0 &&
+        !commandSink_->pushBatch(
+            std::span<const core::Command>(commands.data(), commandCount))) {
+        // Put the references back so a later release still sends the note-off.
+        for (std::size_t index = 0; index < chordNoteCounts_[slot]; ++index) {
+            ++noteRefCounts_[chordNotes_[slot][index]];
+        }
+        return false;
+    }
+    chordHeld_[slot] = false;
+    chordNoteCounts_[slot] = 0;
+    return true;
 }
 
 qulonglong EngineBridge::parameterId(const QString& name) const {
@@ -260,6 +380,12 @@ int EngineBridge::activeVoices() const noexcept {
 }
 
 void EngineBridge::refreshStatus() {
+    if (initialized_) {
+        fx::IEffect* retired = nullptr;
+        while (synth_.takeRetiredEffect(retired)) {
+            delete retired;
+        }
+    }
     const engine::AudioGraph::Stats stats = engine_.stats();
     xruns_.store(stats.lateBlocks + stats.overdueBlocks, std::memory_order_relaxed);
     outputPeak_ = static_cast<double>(stats.outputPeak);

@@ -29,10 +29,14 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width: parent.width
         height: Theme.rotaryLabelHeight
-        text: root.label.toUpperCase()
+        text: root.label.toUpperCase() +
+              (root.optionCount > 0 && root.currentIndex >= 0 &&
+               root.currentIndex < root.optionCount
+                   ? "  /  " + root.options[root.currentIndex].toString().toUpperCase()
+                   : "")
         color: Theme.ink
         font.family: Theme.labelFont
-        font.pixelSize: Theme.labelSize
+        font.pixelSize: Theme.rotaryLabelSize
         font.bold: true
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
@@ -116,30 +120,6 @@ Item {
         }
     }
 
-    Repeater {
-        model: root.optionCount
-        Text {
-            required property int index
-            readonly property real labelAngle: Math.PI * 1.25 +
-                Math.PI * 1.5 * index / Math.max(1, root.optionCount - 1)
-            readonly property real labelRadius: root.dialSize * 0.51
-            width: Math.min(Theme.rotaryOptionLabelWidth, root.width)
-            height: Theme.rotaryLabelHeight
-            x: root.width / 2 + Math.cos(labelAngle) * labelRadius - width / 2
-            y: root.height / 2 - Theme.rotaryLabelHeight / 2 +
-               Math.sin(labelAngle) * labelRadius
-            text: root.options[index] === undefined
-                ? "" : root.options[index].toString().toUpperCase()
-            color: index === root.currentIndex ? Theme.accent : Theme.mutedInk
-            font.family: Theme.labelFont
-            font.pixelSize: Theme.rotaryLabelSize
-            font.bold: index === root.currentIndex
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-        }
-    }
-
     MouseArea {
         id: rotorInput
         anchors.fill: parent
@@ -189,5 +169,6 @@ Item {
         target: root
         function onCurrentIndexChanged() { dial.requestPaint() }
         function onOptionCountChanged() { dial.requestPaint() }
+        function onLabelChanged() { dial.requestPaint() }
     }
 }
