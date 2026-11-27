@@ -26,7 +26,9 @@ qt_add_executable(drumas_ui_tests
     "${_qml_dir}/EngineBridge.cpp"
     "${_qml_dir}/EngineBridge.h"
     "${_qml_dir}/Models.cpp"
-    "${_qml_dir}/Models.h")
+    "${_qml_dir}/Models.h"
+    "${_qml_dir}/ValueFormat.cpp"
+    "${_qml_dir}/ValueFormat.h")
 qt_add_qml_module(drumas_ui_tests
     URI DrumasProTests
     VERSION 1.0

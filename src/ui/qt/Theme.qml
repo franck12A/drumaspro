@@ -25,6 +25,10 @@ QtObject {
     readonly property color lcdMuted: amberMode ? "#a48b61" : "#9ca98b"
     readonly property color ledOff: amberMode ? "#4d2823" : "#783b35"
     readonly property color ledOn: "#ed4338"
+    readonly property color ledActive: amberMode ? "#7adb74" : "#4fbf6a"
+    readonly property color ledBypass: "#d84438"
+    readonly property color ledGlowOn: amberMode ? "#338a32" : "#2f7a3c"
+    readonly property color ledGlowBypass: "#8c1f18"
     readonly property color meterOn: amberMode ? "#e5aa49" : "#405746"
     readonly property color meterOff: amberMode ? "#493b29" : "#77766b"
     readonly property color knobFace: amberMode ? "#25231d" : "#343632"
@@ -61,10 +65,13 @@ QtObject {
     readonly property int sectionHeight: compactMode ? 20 : 23
     readonly property int titleSize: compactMode ? 18 : 23
     readonly property int sectionSize: compactMode ? 11 : 13
-    readonly property int labelSize: compactMode ? 9 : 10
-    readonly property int tinySize: compactMode ? 7 : 8
+    readonly property int labelSize: compactMode ? 10 : 11
+    // Nothing below this size is legible on a 960x600 window; everything that
+    // used to ask for 7px now uses this token.
+    readonly property int minimumFontSize: compactMode ? 8 : 9
+    readonly property int tinySize: minimumFontSize
     readonly property int displaySize: compactMode ? 10 : 11
-    readonly property int smallTextSize: compactMode ? 8 : 9
+    readonly property int smallTextSize: compactMode ? 9 : 10
     readonly property int brandSize: compactMode ? 21 : 26
     readonly property int lcdWidth: compactMode ? 91 : 112
     readonly property int lcdHeight: compactMode ? 38 : 45
@@ -88,7 +95,8 @@ QtObject {
     readonly property int rotaryDiameter: compactMode ? 66 : 78
     readonly property int rotaryWidth: compactMode ? 94 : 112
     readonly property int rotaryHeight: compactMode ? 104 : 118
-    readonly property int rotaryLabelSize: compactMode ? 7 : 8
+    readonly property int rotaryLabelSize: compactMode ? 8 : 9
+    readonly property int rotaryPositionLabelSize: compactMode ? 8 : 9
     readonly property int rotaryLabelHeight: compactMode ? 10 : 12
     readonly property int rotaryOptionLabelWidth: compactMode ? 28 : 32
     readonly property int rotaryDragStep: compactMode ? 16 : 20

@@ -65,6 +65,8 @@ public:
     Q_INVOKABLE bool setEffectMix(int slot, double mix);
     Q_INVOKABLE bool setEffectParameter(int slot, qulonglong id, double value);
     Q_INVOKABLE void selectEffectSlot(int slot);
+    Q_INVOKABLE QString formatParameterValue(qulonglong id, double value) const;
+    Q_INVOKABLE QString formatUnitValue(const QString& unit, double value) const;
     Q_INVOKABLE bool setChordScale(int tonicSemitones, bool naturalMinor);
     Q_INVOKABLE bool playChord(int row, double velocity = 0.8);
     Q_INVOKABLE bool releaseChord(int row);

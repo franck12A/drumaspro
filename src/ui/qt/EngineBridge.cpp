@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 
+#include "ValueFormat.h"
 #include "core/AudioTypes.h"
 #include "fx/EffectFactory.h"
 #include "music/Chord.h"
@@ -268,6 +269,21 @@ void EngineBridge::refreshEffectParameterModel() {
     }
     effectParameterModel_.setEffect(description.slots[index].effectType,
                                     description.slots[index]);
+}
+
+QString EngineBridge::formatParameterValue(qulonglong id, double value) const {
+    const bridge::ParameterSnapshot snapshot = parameterMirror_.snapshot();
+    for (std::size_t index = 0; index < snapshot.count; ++index) {
+        const core::ParameterDescriptor& descriptor = snapshot.values[index].descriptor;
+        if (static_cast<qulonglong>(descriptor.id) == id) {
+            return formatParameter(descriptor.unit, value);
+        }
+    }
+    return formatParameter(core::ParameterUnit::None, value);
+}
+
+QString EngineBridge::formatUnitValue(const QString& unit, double value) const {
+    return formatParameterByUnitName(unit, value);
 }
 
 bool EngineBridge::setChordScale(int tonicSemitones, bool naturalMinor) {

@@ -28,8 +28,31 @@ ThemeAmber {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.slotLabelHeight
 
-            Text {
+            Rectangle {
+                id: statusLed
                 anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.chordLedDiameter
+                height: width
+                radius: width / 2
+                color: root.bypassed ? Theme.ledBypass : Theme.ledActive
+                border.color: Theme.edge
+                border.width: Theme.hairlineWidth
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 1.9
+                    height: width
+                    radius: width / 2
+                    z: -1
+                    color: root.bypassed ? Theme.ledGlowBypass : Theme.ledGlowOn
+                    opacity: root.bypassed ? 0.35 : 0.6
+                }
+            }
+
+            Text {
+                anchors.left: statusLed.right
+                anchors.leftMargin: Theme.inlineGap
                 anchors.verticalCenter: parent.verticalCenter
                 text: "SLOT " + (root.slot + 1)
                 color: root.selected ? Theme.accentBright : Theme.ink

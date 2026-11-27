@@ -47,6 +47,18 @@ como verificado sin ejecutarlo.
 - [ ] La franja inferior no se confunde con un adorno: sus deslizadores
   responden al clic, al arrastre y a la rueda, y el slot seleccionado se
   distingue con el borde de acento.
+- [ ] Los porcentajes se leen como `55 %`, `100 %` o `4.5 %`, nunca como
+  `0.55 %`; Hz, ms y dB muestran solo los decimales necesarios.
+- [ ] El LCD del motor dice `ENGINE` / `ONLINE` / `VOICES n / XRUNS n`, sin
+  abreviaturas tipo `4V` ni `0XR`, y nada queda truncado en 960×600.
+- [ ] `MASTER` está dentro del panel SYNTHESIZER a la derecha de LFO y la fila
+  de parámetros no deja un hueco muerto a la derecha.
+- [ ] La sección EFFECTS CHAIN está dentro de un marco coherente con el resto y
+  el LED de cada slot es rojo en bypass y verde en activo.
+- [ ] En los selectores de patch y escala se leen las posiciones impresas
+  alrededor del dial; si se solapan con el dial o el rótulo, anótalo.
+- [ ] Los textos más pequeños siguen siendo legibles a 960×600 (mínimo
+  `Theme.minimumFontSize`) y no se cortan.
 
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana

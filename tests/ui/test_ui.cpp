@@ -132,6 +132,30 @@ private Q_SLOTS:
                  QStringLiteral("Keys"));
     }
 
+    void parameterValuesUseTheirUnitAndScale() {
+        drumas::ui::EngineBridge bridge;
+        // Percent parameters are stored 0..1 and printed 0..100.
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("%"), 0.55), QStringLiteral("55 %"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("%"), 1.0), QStringLiteral("100 %"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("%"), 0.045), QStringLiteral("4.5 %"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("%"), 0.0), QStringLiteral("0 %"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("Hz"), 750.0), QStringLiteral("750 Hz"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("Hz"), 22.5), QStringLiteral("22.5 Hz"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("Hz"), 0.05), QStringLiteral("0.05 Hz"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("ms"), 200.0), QStringLiteral("200 ms"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("ms"), 0.5), QStringLiteral("0.5 ms"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("dB"), 3.0), QStringLiteral("3 dB"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("dB"), -0.5), QStringLiteral("-0.5 dB"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("ct"), -13.2), QStringLiteral("-13 ct"));
+        QCOMPARE(bridge.formatUnitValue(QStringLiteral("oct"), 2.0), QStringLiteral("2 oct"));
+        QCOMPARE(bridge.formatUnitValue(QString(), 1.5), QStringLiteral("1.5"));
+
+        const qulonglong gainId = bridge.parameterId(QStringLiteral("master.gain"));
+        QCOMPARE(bridge.formatParameterValue(gainId, 0.7), QStringLiteral("70 %"));
+        const qulonglong cutoffId = bridge.parameterId(QStringLiteral("filter.cutoff"));
+        QCOMPARE(bridge.formatParameterValue(cutoffId, 750.0), QStringLiteral("750 Hz"));
+    }
+
     void effectParameterModelReflectsRegistryAndSelection() {
         drumas::fx::ChainDescription chain = drumas::fx::defaultChainDescription();
         const auto decay = drumas::core::makeParameterId("reverb.decay");

@@ -42,10 +42,27 @@ La piel predeterminada usa un panel gris-beige cálido, marcos negros y acentos
 verdes discretos; el tema ámbar/oscuro sigue disponible. El volumen principal y
 los parámetros tienen escalas impresas, perillas con estrías dibujadas,
 selectores rotativos discretos y teclas de acorde con LED rojo. Los seis efectos
-se muestran como módulos individuales con el número de slot correcto; el slot
-seleccionado lleva borde de acento y la franja inferior es su inspector: muestra
-los parámetros publicados por el registro del efecto, con rango, unidad y curva,
-y permite moverlos en vivo. Todavía no hay joystick ni secuenciador.
+se muestran como módulos individuales con el número de slot correcto, dentro de
+un marco propio con su título; el slot seleccionado lleva borde de acento y la
+franja inferior es su inspector: muestra los parámetros publicados por el
+registro del efecto, con rango, unidad y curva, y permite moverlos en vivo.
+Todavía no hay joystick ni secuenciador.
+
+El `MASTER` vive en el panel SYNTHESIZER, a la derecha del grupo LFO, para no
+dejar un hueco muerto en la fila de parámetros. Los selectores rotativos de
+patch y escala imprimen sus posiciones alrededor del dial cuando hay como mucho
+cuatro opciones (con abreviaturas de tres o cuatro caracteres); el número de
+opciones y la posición activa siguen apareciendo bajo el dial. El LED de cada
+slot de efecto es rojo cuando está en bypass y verde cuando procesa, además del
+texto `BYPASSED`/`ACTIVE`.
+
+Los valores se formatean por unidad en `ValueFormat.cpp`: los parámetros de
+porcentaje se guardan en 0..1 pero se muestran en 0..100 (`0.55` → `55 %`), los
+Hz usan 1–2 decimales solo por debajo de 100, los ms redondean a partir de 10 y
+los dB/ct/oct recortan ceros sobrantes. El mismo formateador alimenta las
+perillas, la franja de efectos y el LCD. El tamaño tipográfico mínimo está
+centralizado en `Theme.minimumFontSize` (8 px compacto, 9 px normal); ningún
+texto baja de ese tamaño.
 
 Las fuentes son las instaladas en el sistema (Arial Narrow/Arial para
 serigrafía y `monospace` para LCD); no se ha añadido ni

@@ -5,7 +5,9 @@ qt_add_executable(drumaspro_qt
     EngineBridge.cpp
     EngineBridge.h
     Models.cpp
-    Models.h)
+    Models.h
+    ValueFormat.cpp
+    ValueFormat.h)
 set_target_properties(drumaspro_qt PROPERTIES OUTPUT_NAME drumaspro)
 
 # The singleton property must be set before qt_add_qml_module reads the

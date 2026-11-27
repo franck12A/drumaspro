@@ -10,6 +10,9 @@ Item {
     // 0 = linear, 1 = logarithmic (core::ParameterCurve).
     property int curve: 0
     property bool large: false
+    // When non-zero the engine formatter is used so percent parameters read
+    // "55 %" instead of the raw 0.55 stored in the registry.
+    property var parameterId: 0
     signal valueEdited(real nextValue)
 
     readonly property bool logarithmic: root.curve === 1 && root.minimum > 0 &&
@@ -64,6 +67,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
 
             function shortNumber(number) {
+                if (root.unit === "%")
+                    return Math.round(number * 100).toString()
                 if (Math.abs(number) >= 1000)
                     return Math.round(number / 1000) + "k"
                 if (Math.abs(number) < 10)
@@ -170,8 +175,10 @@ Item {
         Text {
             width: parent.width
             height: Theme.knobValueHeight
-            text: (root.value >= 100 ? root.value.toFixed(0) : root.value.toFixed(2)) +
-                  (root.unit.length > 0 ? " " + root.unit : "")
+            text: root.parameterId !== 0
+                  ? engineBridge.formatParameterValue(root.parameterId, root.value)
+                  : (root.value >= 100 ? root.value.toFixed(0) : root.value.toFixed(2)) +
+                    (root.unit.length > 0 ? " " + root.unit : "")
             color: Theme.ink
             font.family: Theme.displayFont
             font.pixelSize: Theme.smallTextSize

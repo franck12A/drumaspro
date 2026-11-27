@@ -154,7 +154,7 @@ ApplicationWindow {
                 ColumnLayout {
                     objectName: "brandHeader"
                     Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
+                    Layout.alignment: Qt.AlignBottom
                     spacing: Theme.inlineGap
 
                     TapHandler {
@@ -181,6 +181,7 @@ ApplicationWindow {
                 }
 
                 ColumnLayout {
+                    Layout.alignment: Qt.AlignBottom
                     spacing: Theme.inlineGap
                     Text {
                         text: "TONIC"
@@ -207,6 +208,7 @@ ApplicationWindow {
                     id: chordDisplay
                     objectName: "activeChordDisplay"
                     wide: true
+                    Layout.alignment: Qt.AlignBottom
                     label: window.activeChordName
                     value: window.keyNames[window.currentKeyIndex] +
                            (window.currentModeIndex === 0 ? " MAJOR" : " NAT MIN")
@@ -215,14 +217,20 @@ ApplicationWindow {
 
                 LcdDisplay {
                     objectName: "engineStatusDisplay"
-                    label: "ENGINE / " + engineBridge.activeVoices + "V"
+                    wide: true
+                    // Wide enough for "VOICES 4 / XRUNS 0" at both window sizes.
+                    Layout.preferredWidth: Theme.lcdWideWidth + 46
+                    Layout.alignment: Qt.AlignBottom
+                    label: "ENGINE"
                     value: engineBridge.running ? "ONLINE" : "OFFLINE"
-                    unit: engineBridge.xruns + "XR"
+                    unit: "VOICES " + engineBridge.activeVoices +
+                          " / XRUNS " + engineBridge.xruns
                 }
 
                 LevelMeter {
                     id: outputMeter
                     objectName: "outputMeter"
+                    Layout.alignment: Qt.AlignBottom
                     label: "OUTPUT"
                     value: engineBridge.outputPeak
                     bars: 12
@@ -231,25 +239,11 @@ ApplicationWindow {
                 ToggleButton {
                     id: amberThemeToggle
                     objectName: "amberThemeToggle"
+                    Layout.alignment: Qt.AlignBottom
                     Layout.preferredWidth: Theme.themeToggleWidth
                     label: "AMBER"
                     checked: window.amberTheme
                     onToggled: window.amberTheme = checked
-                }
-
-                Knob {
-                    id: masterKnob
-                    objectName: "masterKnob"
-                    large: true
-                    label: "MASTER"
-                    readonly property var controlId:
-                        engineBridge.parameterId("master.gain")
-                    unit: engineBridge.parameterModel.unitForId(controlId)
-                    minimum: engineBridge.parameterModel.minimumForId(controlId)
-                    maximum: engineBridge.parameterModel.maximumForId(controlId)
-                    curve: engineBridge.parameterModel.curveForId(controlId)
-                    value: engineBridge.parameterModel.valueForId(controlId)
-                    onValueEdited: engineBridge.setParameter(controlId, nextValue)
                 }
             }
 
@@ -287,6 +281,7 @@ ApplicationWindow {
                                 objectName: "patchSelector"
                                 label: "PATCH"
                                 options: window.patchNames
+                                shortOptions: ["PAD", "PLK", "KEY"]
                                 currentIndex: window.currentPatchIndex
                                 onActivated: {
                                     window.currentPatchIndex = index
@@ -299,6 +294,7 @@ ApplicationWindow {
                                 objectName: "modeSelector"
                                 label: "SCALE"
                                 options: ["MAJOR", "NAT MIN"]
+                                shortOptions: ["MAJ", "MIN"]
                                 currentIndex: window.currentModeIndex
                                 onActivated: {
                                     window.currentModeIndex = index
@@ -347,6 +343,12 @@ ApplicationWindow {
                                         controls: [
                                             { label: "RATE", parameter: "lfo.rate" }
                                         ]
+                                    },
+                                    {
+                                        label: "MASTER",
+                                        controls: [
+                                            { label: "LEVEL", parameter: "master.gain" }
+                                        ]
                                     }
                                 ]
 
@@ -384,6 +386,7 @@ ApplicationWindow {
                                                     readonly property var controlId:
                                                         engineBridge.parameterId(
                                                             modelData.parameter)
+                                                    parameterId: controlId
                                                     label: modelData.label
                                                     unit: engineBridge.parameterModel
                                                         .unitForId(controlId)
@@ -440,44 +443,59 @@ ApplicationWindow {
                 }
             }
 
-            SectionTitle {
-                text: "EFFECTS CHAIN"
-                inverted: true
-            }
-
-            GridLayout {
-                id: effectGrid
+            ThemeAmber {
+                id: effectsFrame
+                objectName: "effectsFrame"
                 Layout.fillWidth: true
-                columns: 6
-                columnSpacing: Theme.inlineGap
-                rowSpacing: Theme.inlineGap
+                implicitHeight: effectsContent.implicitHeight + 2 * Theme.padding
 
-                Repeater {
-                    model: engineBridge.chainModel
-                    delegate: EffectSlot {
-                        required property int index
-                        required property string effectName
-                        required property bool isBypassed
-                        required property real effectMix
-                        objectName: "effectSlot_" + index
+                ColumnLayout {
+                    id: effectsContent
+                    anchors.fill: parent
+                    anchors.margins: Theme.padding
+                    spacing: Theme.spacing
+
+                    SectionTitle {
                         Layout.fillWidth: true
-                        typeName: effectName
-                        slot: index
-                        bypassed: isBypassed
-                        mix: effectMix
-                        selected: window.selectedEffectSlot === index
-                        onSelectRequested: {
-                            window.selectedEffectSlot = index
-                            engineBridge.selectEffectSlot(index)
+                        text: "EFFECTS CHAIN"
+                        inverted: true
+                    }
+
+                    GridLayout {
+                        id: effectGrid
+                        Layout.fillWidth: true
+                        columns: 6
+                        columnSpacing: Theme.inlineGap
+                        rowSpacing: Theme.inlineGap
+
+                        Repeater {
+                            model: engineBridge.chainModel
+                            delegate: EffectSlot {
+                                required property int index
+                                required property string effectName
+                                required property bool isBypassed
+                                required property real effectMix
+                                objectName: "effectSlot_" + index
+                                Layout.fillWidth: true
+                                typeName: effectName
+                                slot: index
+                                bypassed: isBypassed
+                                mix: effectMix
+                                selected: window.selectedEffectSlot === index
+                                onSelectRequested: {
+                                    window.selectedEffectSlot = index
+                                    engineBridge.selectEffectSlot(index)
+                                }
+                                onTypeSelected: {
+                                    window.selectedEffectSlot = index
+                                    engineBridge.selectEffectSlot(index)
+                                    engineBridge.setEffectType(
+                                        slot, engineBridge.effectTypeId(index))
+                                }
+                                onRequestBypass: engineBridge.setEffectBypass(slot, bypassed)
+                                onRequestMix: engineBridge.setEffectMix(slot, mix)
+                            }
                         }
-                        onTypeSelected: {
-                            window.selectedEffectSlot = index
-                            engineBridge.selectEffectSlot(index)
-                            engineBridge.setEffectType(
-                                slot, engineBridge.effectTypeId(index))
-                        }
-                        onRequestBypass: engineBridge.setEffectBypass(slot, bypassed)
-                        onRequestMix: engineBridge.setEffectMix(slot, mix)
                     }
                 }
             }
@@ -550,11 +568,8 @@ ApplicationWindow {
                             }
 
                             function formatValue(realValue) {
-                                if (Math.abs(realValue) >= 1000)
-                                    return (realValue / 1000).toFixed(1) + "k"
-                                if (Math.abs(realValue) >= 100)
-                                    return realValue.toFixed(0)
-                                return realValue.toFixed(2)
+                                return engineBridge.formatUnitValue(
+                                    parameterControl.unit, realValue)
                             }
 
                             RowLayout {
@@ -572,9 +587,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
-                                    text: parameterControl.formatValue(parameterControl.value) +
-                                          (parameterControl.unit.length > 0
-                                               ? " " + parameterControl.unit : "")
+                                    text: parameterControl.formatValue(parameterControl.value)
                                     color: Theme.mutedInk
                                     font.family: Theme.displayFont
                                     font.pixelSize: Theme.tinySize

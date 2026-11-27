@@ -4,11 +4,15 @@ Item {
     id: root
     property string label: ""
     property var options: []
+    // Optional 3-4 character spellings printed around the dial.
+    property var shortOptions: []
     property int currentIndex: 0
     signal activated(int index)
 
     readonly property int optionCount: options ? options.length : 0
-    readonly property int dialSize: Theme.rotaryDiameter
+    // Positions are printed around the dial only when they fit; with more
+    // options the caption under the dial remains the source of truth.
+    readonly property bool showPositionLabels: optionCount >= 2 && optionCount <= 4
     implicitWidth: Theme.rotaryWidth
     implicitHeight: Theme.rotaryHeight
     focus: true
@@ -45,30 +49,32 @@ Item {
 
     Canvas {
         id: dial
-        width: root.dialSize
-        height: root.dialSize
+        width: root.width
+        height: root.height - Theme.rotaryLabelHeight
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -Theme.rotaryLabelHeight / 2
+        anchors.top: parent.top
 
         onPaint: {
             const context = getContext("2d")
             context.reset()
-            const center = width / 2
-            const radius = width * 0.46
+            const cx = width / 2
+            const cy = height * 0.46
+            const radius = Math.min(width * 0.30, height * 0.36)
             const count = Math.max(1, root.optionCount)
             const fraction = count > 1
                 ? root.currentIndex / (count - 1) : 0
+            const startAngle = Math.PI * 1.25
+            const sweep = Math.PI * 1.5
+            const angleAt = function(f) { return startAngle + sweep * f }
 
             context.fillStyle = Theme.knobShadow
             context.beginPath()
-            context.arc(center, center + Theme.knobRingWidth, radius, 0,
-                        Math.PI * 2)
+            context.arc(cx, cy + Theme.knobRingWidth, radius, 0, Math.PI * 2)
             context.fill()
 
             context.fillStyle = Theme.knobBase
             context.beginPath()
-            context.arc(center, center, radius, 0, Math.PI * 2)
+            context.arc(cx, cy, radius, 0, Math.PI * 2)
             context.fill()
 
             for (let ridge = 0; ridge < Theme.rotaryRidgeCount; ++ridge) {
@@ -76,17 +82,17 @@ Item {
                 context.strokeStyle = Theme.knobRidge
                 context.lineWidth = Theme.knobRidgeWidth
                 context.beginPath()
-                context.moveTo(center + Math.cos(angle) * radius * 0.86,
-                               center + Math.sin(angle) * radius * 0.86)
-                context.lineTo(center + Math.cos(angle) * radius * 0.96,
-                               center + Math.sin(angle) * radius * 0.96)
+                context.moveTo(cx + Math.cos(angle) * radius * 0.86,
+                               cy + Math.sin(angle) * radius * 0.86)
+                context.lineTo(cx + Math.cos(angle) * radius * 0.96,
+                               cy + Math.sin(angle) * radius * 0.96)
                 context.stroke()
             }
 
             const faceRadius = radius * 0.78
             context.fillStyle = Theme.knobFace
             context.beginPath()
-            context.arc(center, center, faceRadius, 0, Math.PI * 2)
+            context.arc(cx, cy, faceRadius, 0, Math.PI * 2)
             context.fill()
             context.strokeStyle = Theme.knobFaceEdge
             context.lineWidth = Theme.knobRingWidth
@@ -95,28 +101,47 @@ Item {
             const tickCount = Math.max(
                 Theme.rotaryMinimumTickCount, root.optionCount)
             for (let tick = 0; tick < tickCount; ++tick) {
-                const angle = Math.PI * 1.25 +
-                              Math.PI * 1.5 * tick / Math.max(1, tickCount - 1)
+                const angle = angleAt(tick / Math.max(1, tickCount - 1))
                 context.strokeStyle = Theme.ink
                 context.lineWidth = Theme.knobRidgeWidth
                 context.beginPath()
-                context.moveTo(center + Math.cos(angle) * radius * 0.66,
-                               center + Math.sin(angle) * radius * 0.66)
-                context.lineTo(center + Math.cos(angle) * radius * 0.78,
-                               center + Math.sin(angle) * radius * 0.78)
+                context.moveTo(cx + Math.cos(angle) * radius * 0.66,
+                               cy + Math.sin(angle) * radius * 0.66)
+                context.lineTo(cx + Math.cos(angle) * radius * 0.78,
+                               cy + Math.sin(angle) * radius * 0.78)
                 context.stroke()
             }
 
-            const pointerAngle = Math.PI * 1.25 + Math.PI * 1.5 * fraction
+            const pointerAngle = angleAt(fraction)
             context.strokeStyle = Theme.knobPointer
             context.lineWidth = Theme.knobValueLineWidth
             context.lineCap = "round"
             context.beginPath()
-            context.moveTo(center - Math.cos(pointerAngle) * faceRadius * 0.08,
-                           center - Math.sin(pointerAngle) * faceRadius * 0.08)
-            context.lineTo(center + Math.cos(pointerAngle) * faceRadius * 0.75,
-                           center + Math.sin(pointerAngle) * faceRadius * 0.75)
+            context.moveTo(cx - Math.cos(pointerAngle) * faceRadius * 0.08,
+                           cy - Math.sin(pointerAngle) * faceRadius * 0.08)
+            context.lineTo(cx + Math.cos(pointerAngle) * faceRadius * 0.75,
+                           cy + Math.sin(pointerAngle) * faceRadius * 0.75)
             context.stroke()
+
+            if (root.showPositionLabels) {
+                context.font = "bold " + Theme.rotaryPositionLabelSize +
+                               "px " + Theme.labelFont
+                context.textAlign = "center"
+                context.textBaseline = "middle"
+                const labelDistance = radius + Theme.serigraphyTracking * 2 +
+                                      Theme.rotaryPositionLabelSize * 0.9
+                for (let option = 0; option < count; ++option) {
+                    const optionAngle = angleAt(option / Math.max(1, count - 1))
+                    const positionLabel = root.shortOptions.length > option
+                        ? String(root.shortOptions[option])
+                        : String(root.options[option])
+                    context.fillStyle = option === root.currentIndex
+                        ? Theme.ink : Theme.mutedInk
+                    context.fillText(positionLabel.substring(0, 4).toUpperCase(),
+                                     cx + Math.cos(optionAngle) * labelDistance,
+                                     cy + Math.sin(optionAngle) * labelDistance)
+                }
+            }
         }
     }
 
@@ -170,5 +195,8 @@ Item {
         function onCurrentIndexChanged() { dial.requestPaint() }
         function onOptionCountChanged() { dial.requestPaint() }
         function onLabelChanged() { dial.requestPaint() }
+        function onShortOptionsChanged() { dial.requestPaint() }
+        function onWidthChanged() { dial.requestPaint() }
+        function onHeightChanged() { dial.requestPaint() }
     }
 }
