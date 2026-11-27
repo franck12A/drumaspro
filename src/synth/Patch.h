@@ -28,6 +28,9 @@ enum class LfoShape : std::uint8_t {
 
 struct Patch {
     std::string_view name{};
+    /// Factory grouping shown by the browser (PAD, PLUCK, LEAD, KEYS, BASS,
+    /// AMBIENT). User JSON patches keep this in PatchDocument instead.
+    std::string_view category{};
 
     // Oscillator 1.
     Waveform osc1Waveform = Waveform::Saw;

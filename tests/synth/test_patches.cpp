@@ -78,6 +78,9 @@ TEST_CASE("every factory patch renders a four-note chord without artefacts",
 
         INFO("patch " << patch.name << ": peak " << stats.peak << ", largest step "
                       << stats.largestStep);
+        // Run with `-s` to print the measured levels of the whole bank.
+        SUCCEED("patch " << patch.name << " peak " << stats.peak << " step "
+                          << stats.largestStep);
 
         REQUIRE(stats.allFinite);
         REQUIRE(stats.maxActiveVoices == 4);
@@ -105,6 +108,7 @@ TEST_CASE("the factory patches use different voice settings", "[synth][patches]"
 
     for (const drumas::synth::Patch& patch : patches) {
         REQUIRE_FALSE(patch.name.empty());
+        REQUIRE_FALSE(patch.category.empty());
         REQUIRE(patch.unisonVoices >= 1);
         REQUIRE(patch.unisonVoices <= drumas::synth::SynthVoice::kMaxUnison);
     }

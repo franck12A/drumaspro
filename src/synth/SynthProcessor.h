@@ -26,6 +26,7 @@
 #include "core/IAudioProcessor.h"
 #include "core/ParameterRegistry.h"
 #include "core/SmoothedValue.h"
+#include "core/SpscQueue.h"
 #include "fx/EffectChain.h"
 #include "fx/MasterLimiter.h"
 #include "synth/Lfo.h"
@@ -96,6 +97,9 @@ public:
     void discardCommand(const core::Command& command) noexcept override {
         if (command.type == core::CommandType::SwapEffect && command.object != 0) {
             delete reinterpret_cast<fx::IEffect*>(command.object);
+        }
+        if (command.type == core::CommandType::SelectPatchData && command.object != 0) {
+            delete reinterpret_cast<const Patch*>(command.object);
         }
     }
 
@@ -177,6 +181,9 @@ public:
             case core::CommandType::SelectPatch:
                 selectPatch(command.patch);
                 break;
+            case core::CommandType::SelectPatchData:
+                applyPatchData(reinterpret_cast<const Patch*>(command.object));
+                break;
             case core::CommandType::SetParam:
                 applyParameter(command.param, command.value);
                 break;
@@ -201,6 +208,12 @@ public:
     /// the control thread must poll and delete them.
     [[nodiscard]] bool takeRetiredEffect(fx::IEffect*& effect) noexcept {
         return chain_.takeRetired(effect);
+    }
+
+    /// Audio thread. User patches adopted through SelectPatchData are returned
+    /// here; the control thread must poll and delete them.
+    [[nodiscard]] bool takeRetiredPatch(const Patch*& patch) noexcept {
+        return retiredPatches_.pop(patch);
     }
 
     /// Any thread after prepare. Total insert + limiter latency in samples,
@@ -254,6 +267,23 @@ private:
         lfo_.setShape(lfoShape_);
         // Deliberately does not touch sounding voices: they finish with the
         // patch they captured (ADR 0007). The next note-on uses the new patch.
+    }
+
+    void applyPatchData(const Patch* patch) noexcept {
+        if (patch == nullptr) {
+            return;
+        }
+        currentPatchIndex_ = -1;
+        currentPatch_ = *patch;
+        live_ = liveParametersFrom(currentPatch_);
+        lfoRateHz_ = currentPatch_.lfoRateHz;
+        lfoShape_ = currentPatch_.lfoShape;
+        lfo_.setRate(lfoRateHz_);
+        lfo_.setShape(lfoShape_);
+        // Dropping the return value would leak the pointer; the queue is sized
+        // far above the control thread's polling period, so a full queue means
+        // the engine was never drained and the pointer is abandoned.
+        (void)retiredPatches_.push(patch);
     }
 
     void applyParameter(core::ParameterId param, float value) noexcept {
@@ -335,6 +365,7 @@ private:
     Lfo lfo_;
     core::ParameterRegistry registry_;
     core::SmoothedValue masterGain_;
+    core::SpscQueue<const Patch*, 64> retiredPatches_;
     std::vector<float> mixLeft_;
     std::vector<float> mixRight_;
     std::vector<float> lfoBuffer_;

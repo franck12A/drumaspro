@@ -48,6 +48,10 @@ enum class CommandType : std::uint8_t {
     SetEffectBypass,
     SetEffectMix,
     SetEffectParam,
+    // User patch from a JSON file. Like SwapEffect, the pointer is prepared on
+    // the control thread; the audio thread copies the data and returns the
+    // pointer through a retirement queue so the control thread can free it.
+    SelectPatchData,
 };
 
 /// One event, small enough to travel through a lock-free queue by value.
@@ -84,6 +88,14 @@ static_assert(std::is_trivially_copyable_v<Command>,
 /// they captured; the new patch applies to the next note-on.
 [[nodiscard]] constexpr Command selectPatch(std::uint8_t patchIndex) noexcept {
     return Command{CommandType::SelectPatch, kInvalidParameterId, 0, patchIndex, 0.0F};
+}
+
+/// Hands ownership of a heap-allocated Patch to the audio thread. The control
+/// thread must keep it alive until the processor returns it through its patch
+/// retirement queue; it must never delete it after a successful push.
+[[nodiscard]] constexpr Command selectPatchData(std::uintptr_t patch) noexcept {
+    return Command{CommandType::SelectPatchData, kInvalidParameterId, 0, 0, 0.0F, 0,
+                   patch};
 }
 
 [[nodiscard]] constexpr Command allNotesOff() noexcept {
