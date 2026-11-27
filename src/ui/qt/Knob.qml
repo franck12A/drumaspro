@@ -38,6 +38,11 @@ Item {
 
     readonly property int dialDiameter: large
         ? Theme.knobLargeDiameter : Theme.knobSmallDiameter
+    // Large knobs get a wider canvas so the min/max numerals sit outside the
+    // base ring instead of on the cap. Compact dials have no room for them.
+    readonly property int canvasWidth: large ? implicitWidth : dialDiameter
+    readonly property int canvasHeight: large ? dialDiameter + 6 : dialDiameter
+    readonly property bool showRangeLabels: large && dialDiameter >= 90
     implicitWidth: large ? Theme.knobLargeWidth : Theme.knobSmallWidth
     implicitHeight: large ? Theme.knobLargeHeight : Theme.knobSmallHeight
 
@@ -62,8 +67,8 @@ Item {
 
         Canvas {
             id: dial
-            width: root.dialDiameter
-            height: root.dialDiameter
+            width: root.canvasWidth
+            height: root.canvasHeight
             anchors.horizontalCenter: parent.horizontalCenter
 
             function shortNumber(number) {
@@ -80,30 +85,44 @@ Item {
                 const context = getContext("2d")
                 context.reset()
                 const center = width / 2
-                const outerRadius = width * 0.48
-                const faceRadius = width * 0.36
+                const outerRadius = Math.min(width, height) * 0.46
+                const faceRadius = outerRadius * 0.75
                 const start = Math.PI * 0.75
                 const range = Math.PI * 1.5
                 const fraction = root.normalizedFor(root.value)
                 const tickCount = root.large ? Theme.knobLargeTicks : Theme.knobSmallTicks
 
+                // Soft drop shadow projected on the panel.
+                context.save()
+                context.shadowColor = "rgba(0, 0, 0, 0.45)"
+                context.shadowBlur = Theme.knobShadowBlur
+                context.shadowOffsetY = Theme.knobShadowOffset
                 context.fillStyle = Theme.knobShadow
                 context.beginPath()
-                context.arc(center, center + Theme.knobRingWidth, outerRadius, 0,
-                            Math.PI * 2)
+                context.arc(center, center, outerRadius, 0, Math.PI * 2)
                 context.fill()
+                context.restore()
 
-                context.fillStyle = Theme.knobBase
+                // Base ring: light from the top-left, shadow to the bottom-right.
+                const baseGradient = context.createLinearGradient(
+                    center - outerRadius, center - outerRadius,
+                    center + outerRadius, center + outerRadius)
+                baseGradient.addColorStop(0.0, Theme.knobBaseLight)
+                baseGradient.addColorStop(0.55, Theme.knobBase)
+                baseGradient.addColorStop(1.0, Theme.knobBaseDark)
+                context.fillStyle = baseGradient
                 context.beginPath()
                 context.arc(center, center, outerRadius, 0, Math.PI * 2)
                 context.fill()
 
                 for (let ridge = 0; ridge < Theme.knobRidgeCount; ++ridge) {
                     const angle = ridge * Math.PI * 2 / Theme.knobRidgeCount
-                    const inner = outerRadius * 0.86
-                    const outer = outerRadius * 0.96
-                    context.strokeStyle = Theme.knobRidge
-                    context.lineWidth = Theme.knobRidgeWidth
+                    const lit = ridge % 2 === 0
+                    const inner = outerRadius * (lit ? 0.83 : 0.86)
+                    const outer = outerRadius * (lit ? 0.97 : 0.95)
+                    context.strokeStyle = lit ? Theme.knobRidgeLight : Theme.knobRidge
+                    context.lineWidth = lit ? Theme.knobRidgeWidth
+                                           : Theme.knobRidgeWidth + 0.5
                     context.beginPath()
                     context.moveTo(center + Math.cos(angle) * inner,
                                    center + Math.sin(angle) * inner)
@@ -116,6 +135,19 @@ Item {
                 context.beginPath()
                 context.arc(center, center, faceRadius, 0, Math.PI * 2)
                 context.fill()
+
+                // Specular sheen on the cap, offset towards the light.
+                const sheen = context.createRadialGradient(
+                    center - faceRadius * 0.35, center - faceRadius * 0.4,
+                    faceRadius * 0.05, center, center, faceRadius)
+                sheen.addColorStop(0.0, Theme.knobSpecular)
+                sheen.addColorStop(0.45, "rgba(255, 255, 255, 0.04)")
+                sheen.addColorStop(1.0, "rgba(255, 255, 255, 0)")
+                context.fillStyle = sheen
+                context.beginPath()
+                context.arc(center, center, faceRadius, 0, Math.PI * 2)
+                context.fill()
+
                 context.strokeStyle = Theme.knobFaceEdge
                 context.lineWidth = Theme.knobRingWidth
                 context.stroke()
@@ -135,16 +167,18 @@ Item {
                     context.stroke()
                 }
 
-                context.fillStyle = Theme.ink
-                context.font = Theme.tinySize + "px " + Theme.displayFont
-                context.textAlign = "center"
-                context.textBaseline = "middle"
-                context.fillText(shortNumber(root.minimum),
-                                 center + Math.cos(start) * outerRadius * 0.66,
-                                 center + Math.sin(start) * outerRadius * 0.66)
-                context.fillText(shortNumber(root.maximum),
-                                 center + Math.cos(start + range) * outerRadius * 0.66,
-                                 center + Math.sin(start + range) * outerRadius * 0.66)
+                if (root.showRangeLabels) {
+                    context.fillStyle = Theme.ink
+                    context.font = Theme.tinySize + "px " + Theme.displayFont
+                    context.textAlign = "center"
+                    context.textBaseline = "middle"
+                    context.fillText(shortNumber(root.minimum),
+                                     center + Math.cos(start) * outerRadius * 1.08,
+                                     center + Math.sin(start) * outerRadius * 1.08)
+                    context.fillText(shortNumber(root.maximum),
+                                     center + Math.cos(start + range) * outerRadius * 1.08,
+                                     center + Math.sin(start + range) * outerRadius * 1.08)
+                }
 
                 const angle = start + range * fraction
                 context.strokeStyle = Theme.knobPointer
@@ -186,6 +220,12 @@ Item {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
+    }
+
+    Connections {
+        target: Theme
+        function onAmberModeChanged() { dial.requestPaint() }
+        function onCompactModeChanged() { dial.requestPaint() }
     }
 
     MouseArea {

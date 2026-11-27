@@ -34,9 +34,33 @@ QtObject {
     readonly property color knobFace: amberMode ? "#25231d" : "#343632"
     readonly property color knobFaceEdge: amberMode ? "#090908" : "#151612"
     readonly property color knobRidge: amberMode ? "#716044" : "#62635c"
+    readonly property color knobRidgeLight: amberMode ? "#8d7752" : "#7d7e76"
     readonly property color knobPointer: "#f5f0e4"
     readonly property color knobBase: amberMode ? "#544833" : "#e4dece"
+    readonly property color knobBaseLight: amberMode ? "#6b5a40" : "#f6f1e5"
+    readonly property color knobBaseDark: amberMode ? "#332a1e" : "#b9b2a2"
     readonly property color knobShadow: amberMode ? "#080807" : "#8a8375"
+    readonly property int knobShadowBlur: 6
+    readonly property int knobShadowOffset: 3
+    readonly property color knobSpecular: "#4dffffff"
+    // Bevel language shared by buttons, panels and screws.
+    readonly property color bevelLight: amberMode ? "#6d5b40" : "#fbf6ea"
+    readonly property color bevelDark: amberMode ? "#000000" : "#6f695d"
+    readonly property color buttonFaceTop: amberMode ? "#3b3225" : "#eae4d6"
+    readonly property color buttonFaceBottom: amberMode ? "#231e17" : "#c1bbae"
+    readonly property color buttonFaceDownTop: amberMode ? "#1e1912" : "#b4aea1"
+    readonly property color buttonFaceDownBottom: amberMode ? "#2c2418" : "#cfc9bc"
+    readonly property color buttonHover: "#14ffffff"
+    readonly property color dropShadow: amberMode ? "#66000000" : "#4a000000"
+    readonly property int dropShadowOffset: compactMode ? 2 : 3
+    readonly property int dropShadowPressedOffset: 1
+    readonly property color windowTop: amberMode ? "#191712" : "#c7c1b2"
+    readonly property color windowBottom: amberMode ? "#0c0b09" : "#aea89a"
+    readonly property color screwLight: amberMode ? "#8b7652" : "#f1ebdc"
+    readonly property color screwDark: amberMode ? "#2a2319" : "#8f887a"
+    readonly property color screwEdge: amberMode ? "#0a0908" : "#4f4b42"
+    readonly property color screwSlot: amberMode ? "#1a150f" : "#5b564c"
+    readonly property int screwDiameter: compactMode ? 6 : 7
     readonly property color toggleOn: amberMode ? "#bd842c" : "#607b61"
     readonly property color toggleOff: amberMode ? "#29251e" : "#777568"
     readonly property color dialTrack: amberMode ? "#514330" : "#827e72"

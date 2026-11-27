@@ -111,10 +111,15 @@ ApplicationWindow {
     }
 
     Rectangle {
+        id: chassis
         anchors.fill: parent
-        color: Theme.panel
         border.color: Theme.edge
         border.width: Theme.mainBorderWidth
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.windowTop }
+            GradientStop { position: 0.55; color: Theme.panel }
+            GradientStop { position: 1.0; color: Theme.windowBottom }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -122,6 +127,34 @@ ApplicationWindow {
             color: Theme.clear
             border.color: Theme.trim
             border.width: Theme.hairlineWidth
+        }
+
+        Screw {
+            x: Theme.mainBorderWidth + Theme.insetFrameGap
+            y: x
+            diameter: Theme.screwDiameter + 2
+            slotAngle: 20
+        }
+
+        Screw {
+            x: parent.width - width - Theme.mainBorderWidth - Theme.insetFrameGap
+            y: Theme.mainBorderWidth + Theme.insetFrameGap
+            diameter: Theme.screwDiameter + 2
+            slotAngle: 110
+        }
+
+        Screw {
+            x: Theme.mainBorderWidth + Theme.insetFrameGap
+            y: parent.height - height - Theme.mainBorderWidth - Theme.insetFrameGap
+            diameter: Theme.screwDiameter + 2
+            slotAngle: 65
+        }
+
+        Screw {
+            x: parent.width - width - Theme.mainBorderWidth - Theme.insetFrameGap
+            y: parent.height - height - Theme.mainBorderWidth - Theme.insetFrameGap
+            diameter: Theme.screwDiameter + 2
+            slotAngle: 150
         }
     }
 
@@ -503,6 +536,7 @@ ApplicationWindow {
             ThemeAmber {
                 id: effectParameterPanel
                 objectName: "effectParameterPanel"
+                showScrews: false
                 Layout.fillWidth: true
                 implicitHeight: effectParameterContent.implicitHeight + 2 * Theme.inlineGap
 

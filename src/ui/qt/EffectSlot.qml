@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 ThemeAmber {
     id: root
+    showScrews: false
     property int slot: 0
     property string typeName: "none"
     property bool bypassed: true

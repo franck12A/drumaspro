@@ -13,6 +13,7 @@ set(_qml_files
     "${_qml_dir}/RotarySelector.qml"
     "${_qml_dir}/Selector.qml"
     "${_qml_dir}/SectionTitle.qml"
+    "${_qml_dir}/Screw.qml"
     "${_qml_dir}/EffectSlot.qml")
 
 foreach (_qml_file IN LISTS _qml_files)

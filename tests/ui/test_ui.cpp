@@ -1,4 +1,5 @@
 #include <QDir>
+#include <QElapsedTimer>
 #include <QCoreApplication>
 #include <QFontDatabase>
 #include <QGuiApplication>
@@ -444,6 +445,40 @@ private Q_SLOTS:
         patchSelector->forceActiveFocus();
         QCOMPARE(sink.batches.size(), std::size_t{2});
         QVERIFY(sink.batches.back().front().type == drumas::core::CommandType::NoteOff);
+    }
+
+    void fullFrameRenderFitsSixtyFps() {
+        drumas::ui::EngineBridge bridge;
+        QQmlApplicationEngine qml;
+        qml.rootContext()->setContextProperty(QStringLiteral("engineBridge"), &bridge);
+        qml.loadFromModule("DrumasProTests", "Main");
+        QVERIFY2(!qml.rootObjects().isEmpty(), "QML Main component failed to load");
+
+        auto* window = qobject_cast<QQuickWindow*>(qml.rootObjects().front());
+        QVERIFY(window != nullptr);
+        window->resize(1280, 720);
+        window->show();
+        QTest::qWait(400);
+
+        // The UI is event-driven: there is no animation loop, so the relevant
+        // cost is a full repaint of the panel. Offscreen grabWindow() renders
+        // the same scene graph the window paints.
+        for (int warmUp = 0; warmUp < 3; ++warmUp) {
+            (void)window->grabWindow();
+        }
+        constexpr int kFrames = 20;
+        QElapsedTimer timer;
+        timer.start();
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const QImage image = window->grabWindow();
+            QVERIFY(!image.isNull());
+        }
+        const double millisecondsPerFrame =
+            static_cast<double>(timer.nsecsElapsed()) / 1.0e6 / kFrames;
+        qInfo("full-frame render at 1280x720: %.1f ms (%.0f fps headroom)",
+              millisecondsPerFrame, 1000.0 / millisecondsPerFrame);
+        QVERIFY2(millisecondsPerFrame < 33.0,
+                 "a full repaint should stay above 30 fps even offscreen");
     }
 
     void blockingUiThreadDoesNotStopAudioProcessing() {

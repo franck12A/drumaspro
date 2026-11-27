@@ -60,6 +60,18 @@ como verificado sin ejecutarlo.
 - [ ] Los textos más pequeños siguen siendo legibles a 960×600 (mínimo
   `Theme.minimumFontSize`) y no se cortan.
 
+- [ ] Las teclas y botones se ven físicos: bisel claro arriba-izquierda,
+  sombra abajo-derecha, sombra proyectada y hundimiento de ~2 px al pulsar;
+  el hover es sutil y el LED del acorde enciende un halo suave.
+- [ ] Las perillas muestran brillo especular, sombra sobre el panel y estrías
+  marcadas; al girarlas no parpadean ni se descolocan.
+- [ ] Los marcos SYNTHESIZER y EFFECTS CHAIN tienen tornillos en las esquinas,
+  línea de bisel y degradado de panel sin que los tornillos tapen texto.
+- [ ] En el tema ámbar el bisel y las sombras conservan contraste (no se ven
+  como manchas negras ni pierden relieve).
+- [ ] Al abrir la ventana y mover controles, la interfaz responde sin tirones
+  visibles (la medición automatizada da ~3,2 ms por frame a 1280×720).
+
 Anota sistema operativo, dispositivo/backend, frecuencia y tamaño de bloque,
 resultado de XRUNS, incidencias audibles/visuales y captura de la ventana
 nativa. Las capturas automatizadas

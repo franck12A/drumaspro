@@ -48,6 +48,21 @@ franja inferior es su inspector: muestra los parámetros publicados por el
 registro del efecto, con rango, unidad y curva, y permite moverlos en vivo.
 Todavía no hay joystick ni secuenciador.
 
+Los controles usan un lenguaje de hardware dibujado solo con QML
+(`Rectangle`, `Canvas`, gradientes), sin imágenes raster: las teclas de acorde y
+los botones tienen bisel con gradiente (luz arriba-izquierda, sombra
+abajo-derecha), borde interior, sombra proyectada que se reduce al pulsar y un
+desplazamiento de 2 px hacia abajo; el hover añade un velo suave y el LED de
+acorde enciende un halo de dos discos. Las perillas dibujan su sombra con
+`shadowBlur`, un anillo de base con gradiente diagonal, estrías alternas
+clara/oscura y un brillo especular radial sobre la tapa; los números de mínimo y
+máximo solo se imprimen en perillas grandes (los diales compactos no tienen
+espacio y muestran las marcas y el valor exacto). Los marcos principales llevan
+tornillos decorativos en las esquinas, una línea de bisel clara arriba/izquierda
+y oscura abajo/derecha, y el fondo usa un degradado vertical suave. Las
+"mejillas" de madera laterales no se implementaron: habrían reducido el ancho
+útil sin aportar legibilidad.
+
 El `MASTER` vive en el panel SYNTHESIZER, a la derecha del grupo LFO, para no
 dejar un hueco muerto en la fila de parámetros. Los selectores rotativos de
 patch y escala imprimen sus posiciones alrededor del dial cuando hay como mucho
@@ -97,6 +112,17 @@ personalizables. Cuando el foco está fuera de los controles, las teclas 1–7
 mantienen y liberan los siete acordes diatónicos; el auto-repeat se ignora.
 Pulsa el encabezado DRUMASPRO para devolver el foco a los atajos tras usar un
 selector.
+
+## Rendimiento
+
+La UI no tiene bucle de animación: repinta cuando cambia un valor o el tema. La
+prueba `fullFrameRenderFitsSixtyFps` mide un repintado completo a 1280×720 con
+el backend software offscreen: **3,2 ms por frame** (≈309 fps de margen, frente
+alos 16,6 ms de 60 fps) en la máquina de desarrollo. Por eso no se añadieron
+`layer.enabled`: las decoraciones son rectángulos baratos y el contenido de los
+`Canvas` queda retenido hasta que se pide `requestPaint()`; las capas habrían
+añadido memoria y una pasada extra sin necesidad. Si el coste sube al añadir
+más controles, la primera palanca es cachear los fondos de panel.
 
 ## Pruebas y captura
 

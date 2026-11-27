@@ -35,11 +35,51 @@ ComboBox {
         }
     }
 
-    background: Rectangle {
-        radius: Theme.corner
-        color: Theme.panelRaised
-        border.color: root.activeFocus ? Theme.accent : Theme.edge
-        border.width: Theme.moduleBorderWidth
+    background: Item {
+        Rectangle {
+            width: parent.width
+            height: parent.height
+            y: Theme.dropShadowPressedOffset
+            radius: Theme.corner
+            color: Theme.dropShadow
+        }
+
+        Rectangle {
+            width: parent.width
+            height: parent.height
+            radius: Theme.corner
+            border.color: root.activeFocus ? Theme.accent : Theme.edge
+            border.width: Theme.moduleBorderWidth
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.buttonFaceTop }
+                GradientStop { position: 1.0; color: Theme.buttonFaceBottom }
+            }
+
+            Rectangle {
+                x: Theme.moduleBorderWidth
+                y: Theme.moduleBorderWidth
+                width: parent.width - 2 * Theme.moduleBorderWidth - Theme.hairlineWidth
+                height: Theme.hairlineWidth
+                color: Theme.bevelLight
+                opacity: 0.7
+            }
+
+            Rectangle {
+                x: Theme.moduleBorderWidth
+                y: parent.height - Theme.moduleBorderWidth - Theme.hairlineWidth
+                width: parent.width - 2 * Theme.moduleBorderWidth - Theme.hairlineWidth
+                height: Theme.hairlineWidth
+                color: Theme.bevelDark
+                opacity: 0.5
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: Theme.moduleBorderWidth
+                radius: Math.max(0, Theme.corner - 1)
+                color: root.hovered && !root.down ? Theme.buttonHover : Theme.clear
+            }
+        }
     }
 
     delegate: ItemDelegate {
